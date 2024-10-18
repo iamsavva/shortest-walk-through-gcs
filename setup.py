@@ -14,6 +14,6 @@ setup(
         'colorama',
         'tqdm',
         'plotly',
-        'ipykernel'
+        'ipykernel',"
     ]
 )

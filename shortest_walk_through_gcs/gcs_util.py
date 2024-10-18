@@ -11,8 +11,11 @@ from pydrake.solvers import (  # pylint: disable=import-error, no-name-in-module
 from pydrake.geometry.optimization import (  # pylint: disable=import-error, no-name-in-module
     GraphOfConvexSets,
 )
+from pydrake.symbolic import (  # pylint: disable=import-error, no-name-in-module, unused-import
+    Expression,
+)
 
-from util import (
+from shortest_walk_through_gcs.util import (
     timeit,
     INFO,
     YAY,
@@ -21,9 +24,7 @@ from util import (
     diditwork,
 )  # pylint: disable=unused-import
 
-from pydrake.symbolic import (  # pylint: disable=import-error, no-name-in-module, unused-import
-    Expression,
-)
+
 
 
 def get_vertex_name(t: int, set_name: str) -> str:

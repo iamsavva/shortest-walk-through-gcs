@@ -53,9 +53,9 @@ from tqdm import tqdm
 import pickle
 
 from collections import deque
-from program_options import FREE_POLY, PSD_POLY, CONVEX_POLY, ProgramOptions
+from shortest_walk_through_gcs.program_options import FREE_POLY, PSD_POLY, CONVEX_POLY, ProgramOptions
 
-from util import ( # pylint: disable=import-error, no-name-in-module, unused-import
+from shortest_walk_through_gcs.util import ( # pylint: disable=import-error, no-name-in-module, unused-import
     timeit,
     diditwork,
     INFO,
@@ -68,8 +68,8 @@ from util import ( # pylint: disable=import-error, no-name-in-module, unused-imp
     add_set_membership,
 )  
 
-from gcs_util import get_edge_name, make_quadratic_cost_function_matrices
-from polynomial_dual_gcs_utils import (
+from shortest_walk_through_gcs.gcs_util import get_edge_name, make_quadratic_cost_function_matrices
+from shortest_walk_through_gcs.polynomial_dual_gcs_utils import (
     define_quadratic_polynomial,
     get_product_constraints,
     make_linear_set_inequalities, 
@@ -79,9 +79,8 @@ from polynomial_dual_gcs_utils import (
     get_set_membership_inequalities,
     get_set_intersection_inequalities,
 )
-# from graph_dual import DualVertex, DualEdge, PolynomialDualGCS
 
-from util_moments import (
+from shortest_walk_through_gcs.util_moments import (
     extract_moments_from_vector_of_spectrahedron_prog_variables, 
     make_moment_matrix, 
     get_moment_matrix_for_a_measure_over_set,

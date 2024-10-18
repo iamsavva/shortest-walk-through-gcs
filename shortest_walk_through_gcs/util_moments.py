@@ -32,7 +32,7 @@ from pydrake.math import ( # pylint: disable=import-error, no-name-in-module, un
 
 from pydrake.all import MakeSemidefiniteRelaxation # pylint: disable=import-error, no-name-in-module
 
-from util import add_set_membership, latex, diditwork
+from shortest_walk_through_gcs.util import add_set_membership, latex, diditwork
 
 def make_moment_matrix(m0, m1:npt.NDArray, m2:npt.NDArray):
     assert m2.shape == (len(m1), len(m1))

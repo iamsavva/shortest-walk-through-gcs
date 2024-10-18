@@ -3,17 +3,6 @@ import typing as T  # pylint: disable=unused-import
 import numpy as np
 import numpy.typing as npt
 
-from pydrake.solvers import (  # pylint: disable=import-error, no-name-in-module, unused-import
-    MathematicalProgram,
-    MathematicalProgramResult,
-    Solve,
-    MosekSolver,
-    MosekSolverDetails,
-    SnoptSolver,
-    IpoptSolver,
-    SolverOptions,
-    CommonSolverOption,
-)
 from pydrake.geometry.optimization import (  # pylint: disable=import-error, no-name-in-module
     GraphOfConvexSets,
     GraphOfConvexSetsOptions,
@@ -24,45 +13,16 @@ from pydrake.geometry.optimization import (  # pylint: disable=import-error, no-
     VPolytope,
     Hyperellipsoid
 )
-import numbers
-import pydot
-
-from pydrake.symbolic import (  # pylint: disable=import-error, no-name-in-module, unused-import
-    Polynomial,
-    Variable,
-    Variables,
-    Expression,
-)
-from pydrake.math import ( # pylint: disable=import-error, no-name-in-module, unused-import
-    ge,
-    eq,
-    le,
-)  
-
-import plotly.graph_objects as go  # pylint: disable=import-error
-from plotly.express.colors import sample_colorscale  # pylint: disable=import-error
-import plotly.graph_objs as go
-from plotly.subplots import make_subplots
-
-from program_options import FREE_POLY, PSD_POLY, CONVEX_POLY, ProgramOptions
-
-from util import (
-    timeit,
-    diditwork,
-    INFO,
-    YAY,
-    WARN,
-    ERROR,
-    ChebyshevCenter,
-)  # pylint: disable=import-error, no-name-in-module, unused-import
-
-from gcs_util import get_edge_name, make_quadratic_cost_function_matrices
-
-from gcs_dual import PolynomialDualGCS, DualEdge, DualVertex
-
-
 
 from scipy.special import comb
+
+import plotly.graph_objects as go  # pylint: disable=import-error
+
+from shortest_walk_through_gcs.gcs_dual import PolynomialDualGCS, DualEdge, DualVertex
+
+
+
+
 
 # ------------------------------------------------------------------
 # bezier plot utils

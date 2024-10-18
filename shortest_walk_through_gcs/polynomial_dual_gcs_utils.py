@@ -5,14 +5,6 @@ import numpy.typing as npt
 
 from pydrake.solvers import (  # pylint: disable=import-error, no-name-in-module, unused-import
     MathematicalProgram,
-    MathematicalProgramResult,
-    Solve,
-    MosekSolver,
-    MosekSolverDetails,
-    SnoptSolver,
-    IpoptSolver,
-    SolverOptions,
-    CommonSolverOption,
 )
 from pydrake.geometry.optimization import (  # pylint: disable=import-error, no-name-in-module
     GraphOfConvexSets,
@@ -23,8 +15,6 @@ from pydrake.geometry.optimization import (  # pylint: disable=import-error, no-
     Hyperrectangle,
     Hyperellipsoid,
 )
-import numbers
-import pydot
 
 from pydrake.symbolic import (  # pylint: disable=import-error, no-name-in-module, unused-import
     Polynomial,
@@ -39,26 +29,10 @@ from pydrake.math import ( # pylint: disable=import-error, no-name-in-module, un
     le,
 )  
 
-import plotly.graph_objects as go  # pylint: disable=import-error
-from plotly.express.colors import sample_colorscale  # pylint: disable=import-error
-import plotly.graph_objs as go
-from plotly.subplots import make_subplots
 
-from tqdm import tqdm
+from shortest_walk_through_gcs.program_options import FREE_POLY, PSD_POLY, CONVEX_POLY, ProgramOptions
 
-from program_options import FREE_POLY, PSD_POLY, CONVEX_POLY, ProgramOptions
-
-from util import (
-    timeit,
-    diditwork,
-    INFO,
-    YAY,
-    WARN,
-    ERROR,
-    ChebyshevCenter,
-)  # pylint: disable=import-error, no-name-in-module, unused-import
-
-from util_moments import make_moment_matrix
+from shortest_walk_through_gcs.util_moments import make_moment_matrix
 
 
 def get_product_constraints(constraints: T.List[Expression]) -> T.List[Expression]:

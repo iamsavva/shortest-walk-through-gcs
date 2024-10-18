@@ -3,20 +3,6 @@ import typing as T  # pylint: disable=unused-import
 import numpy as np
 import numpy.typing as npt
 
-from pydrake.solvers import (  # pylint: disable=import-error, no-name-in-module, unused-import
-    MathematicalProgram,
-    MathematicalProgramResult,
-    Solve,
-    MosekSolver,
-    GurobiSolver,
-    MosekSolverDetails,
-    SnoptSolver,
-    OsqpSolver,
-    ClarabelSolver,
-    IpoptSolver,
-    SolverOptions,
-    CommonSolverOption,
-)
 from pydrake.geometry.optimization import (  # pylint: disable=import-error, no-name-in-module
     GraphOfConvexSets,
     GraphOfConvexSetsOptions,
@@ -25,31 +11,14 @@ from pydrake.geometry.optimization import (  # pylint: disable=import-error, no-
     ConvexSet,
     Hyperrectangle,
 )
-import numbers
-import pydot
 
-from pydrake.symbolic import (  # pylint: disable=import-error, no-name-in-module, unused-import
-    Polynomial,
-    Variable,
-    Variables,
-    Expression,
-)
-from pydrake.math import (  # pylint: disable=import-error, no-name-in-module, unused-import
-    ge,
-    eq,
-    le,
-)
-import copy
-# from tqdm import tqdm
 import plotly.graph_objects as go  # pylint: disable=import-error
-# import plotly.graph_objs as go
 
-from collections import deque
 from queue import PriorityQueue
 
-from program_options import FREE_POLY, PSD_POLY, CONVEX_POLY, ProgramOptions
+from shortest_walk_through_gcs.program_options import FREE_POLY, PSD_POLY, CONVEX_POLY, ProgramOptions
 
-from util import (
+from shortest_walk_through_gcs.util import (
     timeit,
     diditwork,
     INFO,
@@ -60,11 +29,9 @@ from util import (
     get_kth_control_point
 )  # pylint: disable=import-error, no-name-in-module, unused-import
 
-# from gcs_util import get_edge_name, make_quadratic_cost_function_matrices, plot_a_gcs
-
-from gcs_dual import PolynomialDualGCS, DualEdge, DualVertex
-from plot_utils import plot_bezier
-from solve_restriction import solve_convex_restriction, solve_parallelized_convex_restriction, RestrictionSolution, solve_double_integrator_convex_restriction, solve_triple_integrator_convex_restriction
+from shortest_walk_through_gcs.gcs_dual import PolynomialDualGCS, DualEdge, DualVertex
+from shortest_walk_through_gcs.plot_utils import plot_bezier
+from shortest_walk_through_gcs.solve_restriction import solve_convex_restriction, solve_parallelized_convex_restriction, RestrictionSolution, solve_double_integrator_convex_restriction, solve_triple_integrator_convex_restriction
 
 
 def precompute_k_step_feasible_paths_from_every_vertex(graph: PolynomialDualGCS, lookaheads: T.List[int]):
