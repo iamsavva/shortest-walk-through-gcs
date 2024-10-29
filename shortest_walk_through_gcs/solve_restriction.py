@@ -56,11 +56,10 @@ from shortest_walk_through_gcs.gcs_dual import PolynomialDualGCS, DualEdge, Dual
 
 from shortest_walk_through_gcs.util import add_set_membership, recenter_convex_set 
 
-# ---------------------------------------------------------------------
-# ---------------------------------------------------------------------
-# ---------------------------------------------------------------------
-
 class RestrictionSolution:
+    """
+    A purpose-built class for storing restrictions over a vertex sequence
+    """
     def __init__(self, vertex_path:T.List[DualVertex], trajectory:T.List[npt.NDArray], edge_variable_trajectory:T.List[npt.NDArray] = None):
         self.vertex_path = vertex_path
         self.trajectory = trajectory
@@ -112,7 +111,7 @@ class RestrictionSolution:
         return solver_time
 
     def get_cost(self, graph:PolynomialDualGCS, 
-                 use_surrogate: bool, 
+                 use_edge_cost_surrogate: bool, 
                  add_target_heuristic:bool = True, 
                  target_state:npt.NDArray = None,
                  ) -> float:
@@ -132,7 +131,7 @@ class RestrictionSolution:
             x_v = self.trajectory[index]
             x_v_1 = self.trajectory[index+1]
             u = self.edge_variable_trajectory[index]
-            if use_surrogate:
+            if use_edge_cost_surrogate:
                 cost += edge.cost_function_surrogate(x_v, u, x_v_1, target_state)
             else:
                 cost += edge.cost_function(x_v, u, x_v_1, target_state)                
@@ -141,27 +140,6 @@ class RestrictionSolution:
             cost_to_go_at_last_point = self.vertex_path[-1].get_cost_to_go_at_point(self.trajectory[-1], target_state, graph.options.check_cost_to_go_at_point)
             cost += cost_to_go_at_last_point
         return cost
-
-def add_cons(prog:MathematicalProgram, formulas, con_type:str, linear:bool, verbose=False):
-    if isinstance(formulas, Expression):
-        formulas = [formulas]
-    if verbose:
-        for formula in formulas:
-            print(formula >= 0)
-    if con_type == "ge":
-        if linear:
-            prog.AddLinearConstraint(ge(formulas,0))
-        else:
-            prog.AddConstraint(ge(formulas,0))
-    elif con_type == "eq":
-        if linear:
-            prog.AddLinearConstraint(eq(formulas,0))
-        else:
-            prog.AddConstraint(eq(formulas,0))
-    else:
-        raise NotImplementedError()
-    
-
 
 
 def solve_parallelized_convex_restriction(
@@ -175,11 +153,39 @@ def solve_parallelized_convex_restriction(
     warmstart:RestrictionSolution = None,
 ) -> T.Tuple[T.List[RestrictionSolution], float]:
     """
-    solve a convex restriction over a vertex path
-    return cost of the vertex_path
-    and return a list of bezier curves
-    where bezier curve is a list of numpy arrays (vectors).
+    THIS IS VERY STUPID PARALLELIZATION and should not actually be used.
+    what it does is instead of solving n progs, it creates a single big prog and solves it.
+    it's stupid.
+    proper parallelization is not actually implemented yet;
+    TODO: now that SolveInParallel is in drake, should reimplement.
+
+    Returns:
+        T.Tuple[T.List[RestrictionSolution], float]: list of RestrictionSolutions and total solve time.
     """
+
+    def add_cons(prog:MathematicalProgram, formulas, con_type:str, linear:bool, verbose=False):
+        """
+        A simple helper function for quickly adding constraints
+        """
+        if isinstance(formulas, Expression):
+            formulas = [formulas]
+        if verbose:
+            for formula in formulas:
+                print(formula >= 0)
+        if con_type == "ge":
+            if linear:
+                prog.AddLinearConstraint(ge(formulas,0))
+            else:
+                prog.AddConstraint(ge(formulas,0))
+        elif con_type == "eq":
+            if linear:
+                prog.AddLinearConstraint(eq(formulas,0))
+            else:
+                prog.AddConstraint(eq(formulas,0))
+        else:
+            raise NotImplementedError()
+        
+
     options = graph.options
 
     # construct an optimization problem
@@ -275,11 +281,9 @@ def solve_parallelized_convex_restriction(
 
                 for evaluator in edge.linear_inequality_evaluators:
                     add_cons(prog, evaluator(vertex_trajectory[i-1], u, x, target_state), "ge", True)
-                    # prog.AddLinearConstraint(ge(evaluator(vertex_trajectory[i-1], u, x, target_state), 0))
 
                 for evaluator in edge.equality_evaluators:
                     add_cons(prog, evaluator(vertex_trajectory[i-1], u, x, target_state), "eq", True)
-                    # prog.AddLinearConstraint(eq(evaluator(vertex_trajectory[i-1], u, x, target_state), 0))
 
                 # TODO: in practice this should be put as lorentz cone, not quadratic
                 # THIS DEPENDS
@@ -288,10 +292,7 @@ def solve_parallelized_convex_restriction(
                     add_cons(prog, evaluator(vertex_trajectory[i-1], u, x, target_state), "ge", False)
 
                 # groebner bases related stuff
-                # print(edge.name)
                 for evaluator in edge.groebner_basis_equality_evaluators:
-                    # print(len(edge.left.x), len(vertex_trajectory[i-1]))
-                    # print(len(edge.right.x), len(x))
                     add_cons(prog, evaluator(vertex_trajectory[i-1], u, x, target_state), "eq", True)
                     # prog.AddLinearConstraint(eq(evaluator(vertex_trajectory[i-1], u, x, target_state), 0))
 
@@ -411,7 +412,8 @@ def solve_convex_restriction(
         return result[0], dt
     
 
-# ---
+# ------------------------------------------------------------------------------------
+# purpose-specific convex restrictions
 
 
 def solve_double_integrator_convex_restriction(
@@ -580,9 +582,6 @@ def solve_double_integrator_convex_restriction(
         #     display(Markdown(con.ToLatex()))
         return None, None, None, np.inf, solver_solve_time
     
-
-
-
 
 
 def solve_triple_integrator_convex_restriction(
