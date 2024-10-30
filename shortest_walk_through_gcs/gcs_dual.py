@@ -69,12 +69,9 @@ from shortest_walk_through_gcs.util import ( # pylint: disable=import-error, no-
     add_set_membership,
 )  
 
-from shortest_walk_through_gcs.gcs_util import get_edge_name, make_quadratic_cost_function_matrices
-from shortest_walk_through_gcs.polynomial_dual_gcs_utils import (
+from shortest_walk_through_gcs.util_gcs_specific import get_edge_name, make_quadratic_cost_function_matrices
+from shortest_walk_through_gcs.util_polynomial_handling import (
     define_quadratic_polynomial,
-    get_product_constraints,
-    make_linear_set_inequalities, 
-    get_B_matrix,
     define_sos_constraint_over_polyhedron_multivar_new,
     make_potential,
     get_set_membership_inequalities,

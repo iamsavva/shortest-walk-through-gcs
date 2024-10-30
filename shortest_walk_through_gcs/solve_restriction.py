@@ -50,7 +50,7 @@ from shortest_walk_through_gcs.util import ( # pylint: disable=import-error, no-
     latex
 )  
 
-from shortest_walk_through_gcs.gcs_util import get_edge_name, make_quadratic_cost_function_matrices, plot_a_gcs
+from shortest_walk_through_gcs.util_gcs_specific import get_edge_name
 
 from shortest_walk_through_gcs.gcs_dual import PolynomialDualGCS, DualEdge, DualVertex
 
