@@ -31,7 +31,7 @@ from shortest_walk_through_gcs.util import (
 
 from shortest_walk_through_gcs.gcs_dual import PolynomialDualGCS, DualEdge, DualVertex
 from shortest_walk_through_gcs.plot_utils import plot_bezier
-from shortest_walk_through_gcs.solve_restriction import solve_convex_restriction, solve_parallelized_convex_restriction, RestrictionSolution, solve_double_integrator_convex_restriction, solve_triple_integrator_convex_restriction
+from shortest_walk_through_gcs.solve_restriction import solve_convex_restriction, solve_parallelized_convex_restriction, RestrictionSolution
 
 
 def precompute_k_step_feasible_paths_from_every_vertex(graph: PolynomialDualGCS, lookaheads: T.List[int]):
@@ -64,9 +64,9 @@ def get_all_k_step_paths_from_node(
         previous_vertex = None
         if node.length() >= 2:
             previous_vertex = node.vertex_path[-2]
-        vertex_paths = graph.get_all_n_step_paths( options.policy_lookahead, node.vertex_now(), previous_vertex)
+        vertex_paths = graph.get_all_n_step_paths( options.policy_lookahead_horizon, node.vertex_now(), previous_vertex)
     else:
-        vertex_paths = graph.get_all_n_step_paths_no_revisits( options.policy_lookahead, node.vertex_now(), node.vertex_path)
+        vertex_paths = graph.get_all_n_step_paths_no_revisits( options.policy_lookahead_horizon, node.vertex_now(), node.vertex_path)
 
     vertex_paths_after_prohibited = []
     for vertex_path in vertex_paths:
@@ -81,7 +81,7 @@ def get_all_k_step_paths_from_node(
 
     vertex_paths = vertex_paths_after_prohibited
     
-    if options.solve_shortest_walk_not_path and graph.options.no_vertex_revisit_along_the_walk:
+    if options.solve_shortest_walk_not_path and graph.options.do_not_return_to_previously_visited_vertices:
         new_vertex_paths = []
         vertex_names_in_path_so_far = node.vertex_names()
         for vertex_path in vertex_paths:
@@ -108,7 +108,7 @@ def get_all_k_step_paths_from_node(
     solve_times = [0.0]*len(vertex_paths)
 
     for i, vertex_path in enumerate(vertex_paths):
-        if options.policy_rollout_reoptimize_path_so_far_and_K_step and \
+        if options.policy_optimize_path_so_far_and_K_step and \
             (len(node.vertex_path) <= options.so_far_and_k_step_initials or len(node.vertex_path) % options.so_far_and_k_step_ratio <= 1e-3):
             # reoptimize current and path so far
             warmstart = node if options.policy_use_warmstarting else None
@@ -139,7 +139,7 @@ def get_all_k_step_paths_from_node(
 
 
     if options.use_parallelized_solve_time_reporting:
-        num_parallel_solves = np.ceil(len(vertex_paths)/options.num_simulated_cores)
+        num_parallel_solves = np.ceil(len(vertex_paths)/options.num_simulated_cores_for_parallelized_solve_time_reporting)
         total_solver_time = np.max(solve_times)*num_parallel_solves
     else:
         total_solver_time = np.sum(solve_times)
@@ -164,9 +164,9 @@ def get_k_step_optimal_paths(
         previous_vertex = None
         if node.length() >= 2:
             previous_vertex = node.vertex_path[-2]
-        vertex_paths = graph.get_all_n_step_paths( options.policy_lookahead, node.vertex_now(), previous_vertex)
+        vertex_paths = graph.get_all_n_step_paths( options.policy_lookahead_horizon, node.vertex_now(), previous_vertex)
     else:
-        vertex_paths = graph.get_all_n_step_paths_no_revisits( options.policy_lookahead, node.vertex_now(), node.vertex_path)
+        vertex_paths = graph.get_all_n_step_paths_no_revisits( options.policy_lookahead_horizon, node.vertex_now(), node.vertex_path)
 
     vertex_paths_after_prohibited = []
     for vertex_path in vertex_paths:
@@ -181,7 +181,7 @@ def get_k_step_optimal_paths(
 
     vertex_paths = vertex_paths_after_prohibited
     
-    if options.solve_shortest_walk_not_path and graph.options.no_vertex_revisit_along_the_walk:
+    if options.solve_shortest_walk_not_path and graph.options.do_not_return_to_previously_visited_vertices:
         new_vertex_paths = []
         vertex_names_in_path_so_far = node.vertex_names()
         for vertex_path in vertex_paths:
@@ -209,7 +209,7 @@ def get_k_step_optimal_paths(
 
     for i, vertex_path in enumerate(vertex_paths):
         next_node = None
-        if options.policy_rollout_reoptimize_path_so_far_and_K_step and \
+        if options.policy_optimize_path_so_far_and_K_step and \
             (len(node.vertex_path) <= options.so_far_and_k_step_initials or len(node.vertex_path) % options.so_far_and_k_step_ratio <= 1e-3):
             # reoptimize current and path so far
             warmstart = node if options.policy_use_warmstarting else None
@@ -248,7 +248,7 @@ def get_k_step_optimal_paths(
 
 
     if options.use_parallelized_solve_time_reporting:
-        num_parallel_solves = np.ceil(len(vertex_paths)/options.num_simulated_cores)
+        num_parallel_solves = np.ceil(len(vertex_paths)/options.num_simulated_cores_for_parallelized_solve_time_reporting)
         total_solver_time = np.max(solve_times)*num_parallel_solves
     else:
         total_solver_time = np.sum(solve_times)
@@ -367,7 +367,7 @@ def postprocess_the_path(graph:PolynomialDualGCS,
                     unique_vertex_names, repeats = get_name_repeats(best_restriction.vertex_names())
                     unique_vertices = [graph.vertices[name] for name in unique_vertex_names]
                 if options.use_parallelized_solve_time_reporting:
-                    num_parallel_solves = np.ceil(len(solve_times)/options.num_simulated_cores)
+                    num_parallel_solves = np.ceil(len(solve_times)/options.num_simulated_cores_for_parallelized_solve_time_reporting)
                     total_solver_time += np.max(solve_times)*num_parallel_solves
                 else:
                     total_solver_time += np.sum(solve_times)
@@ -394,7 +394,7 @@ def postprocess_the_path(graph:PolynomialDualGCS,
             best_cost, best_restriction = que.get(block=False)
 
         if options.use_parallelized_solve_time_reporting:
-            num_parallel_solves = np.ceil(len(solve_times)/options.num_simulated_cores)
+            num_parallel_solves = np.ceil(len(solve_times)/options.num_simulated_cores_for_parallelized_solve_time_reporting)
             total_solver_time += np.max(solve_times)*num_parallel_solves
             INFO(
                 "shortcut posptprocessing, num_parallel_solves",
@@ -414,35 +414,6 @@ def postprocess_the_path(graph:PolynomialDualGCS,
         INFO("shortcut posptprocessing time", total_solver_time, verbose = options.verbose_restriction_improvement)
         
 
-    # if options.shortcut_by_scaling_dt:
-    #     # TODO: fix. need to redo the timing
-    #     dt = options.delta_t
-    #     scalings = np.linspace(0.8, 1, options.num_simulated_cores)
-
-    #     solve_times = [0.0]*len(scalings)
-    #     que = PriorityQueue()
-    #     for i, scaling in enumerate(scalings):
-    #         vertex_path = repeats_to_vertex_names(unique_vertices, shortcut_repeat)
-            
-    #         new_restriction, solver_time = solve_convex_restriction(graph, 
-    #                                                                 vertex_path, 
-    #                                                                 initial_state, 
-    #                                                                 verbose_failure=False, 
-    #                                                                 target_state=target_state, 
-    #                                                                 one_last_solve = True)
-    #         solve_times[i] = solver_time
-    #         if new_restriction is not None:
-    #             restriction_cost = new_restriction.get_cost(graph, False, not options.policy_use_zero_heuristic, target_state=target_state)
-    #             que.put((restriction_cost+np.random.uniform(0,1e-9), (new_restriction, dt*scaling)))
-    #     if not que.empty():
-    #         best_cost, (best_restriction, best_dt) = que.get(block=False)
-    #         graph.options.delta_t = best_dt
-    #         options.delta_t = best_dt
-    #     if options.use_parallelized_solve_time_reporting:
-    #         num_parallel_solves = np.ceil(len(solve_times)/options.num_simulated_cores)
-    #         total_solver_time += np.max(solve_times)*num_parallel_solves
-    #     else:
-    #         total_solver_time += np.sum(solve_times)
         
     INFO(
         "path cost improved from",
@@ -458,210 +429,6 @@ def postprocess_the_path(graph:PolynomialDualGCS,
     return best_restriction, total_solver_time
 
 
-
-def double_integrator_postprocessing(
-                                    graph: PolynomialDualGCS,
-                                    options: ProgramOptions,
-                                    convex_set_path: T.List[ConvexSet],
-                                    vertex_name_path: T.List[str],
-                                    vel_bounds: ConvexSet,
-                                    acc_bounds: ConvexSet,
-                                    start_state:npt.NDArray,
-                                    target_state:npt.NDArray,
-                                    cost_function: T.Callable,
-                                    traj_reversed:bool,
-                                    past_solution=None
-                                    )-> T.Tuple[RestrictionSolution, T.List[float], float]:
-    unique_vertex_names, repeats = get_name_repeats(vertex_name_path)
-
-    INFO("using double integrator post-processing", verbose = options.verbose_restriction_improvement)
-    
-    delta_t = options.delta_t
-    ratio = options.double_integrator_post_processing_ratio
-
-    schedules = []
-    num = len(unique_vertex_names)-1
-    for i in range(2**num):
-        pick_or_not = bin(i)[2:]
-        if len(pick_or_not) < num:
-            pick_or_not = "0"*(num - len(pick_or_not)) + pick_or_not
-
-        delta_t_schedule = [delta_t] * (len(convex_set_path)-1)
-        for index, pick in enumerate(pick_or_not):
-            if pick == "1":
-                delta_t_schedule[sum(repeats[:index])] = delta_t * ratio
-        schedules.append(np.array(delta_t_schedule))
-    
-    # schedules = [options.delta_t * np.ones(len(vertex_name_path)-1)]
-
-    solve_times = [0.0]*len(schedules)
-    que = PriorityQueue()
-    for i, schedule in enumerate(schedules):
-        # ERROR(schedule)
-        # ERROR(vertex_name_path)
-        # ERROR(start_state, target_state)
-        # ERROR("---")
-        x_traj_sol, v_traj_sol, a_traj_sol, cost, solve_time = solve_double_integrator_convex_restriction(
-            graph,
-            options,
-            convex_set_path,
-            vertex_name_path,
-            vel_bounds,
-            acc_bounds,
-            start_state,
-            target_state,
-            schedule,
-            cost_function,
-            traj_reversed,
-            # past_solution
-            )
-        solve_times[i] = solve_time
-        if x_traj_sol is not None:
-            que.put((cost + np.random.uniform(0,1e-9), (x_traj_sol, v_traj_sol, a_traj_sol, schedule)))
-
-    if options.use_parallelized_solve_time_reporting:
-        num_parallel_solves = np.ceil(len(solve_times)/options.num_simulated_cores)
-        total_solver_time = np.max(solve_times)*num_parallel_solves
-        INFO(
-            "double inegrator postprocessing, num_parallel_solves",
-            num_parallel_solves,
-            verbose = options.verbose_restriction_improvement
-        )
-        INFO("each solve time", np.round(solve_times, 3), verbose = options.verbose_restriction_improvement)
-    else:
-        total_solver_time = np.sum(solve_times)
-
-
-    if que.empty():
-        WARN(
-            "double integrator no improvement",
-            verbose = options.verbose_restriction_improvement
-        )
-        return None, None, None, None, total_solver_time
-    
-    best_cost, (x_traj_sol, v_traj_sol, a_traj_sol, schedule) = que.get()
-
-
-    INFO(
-        "double integrator time improvement from",
-        options.delta_t * (len(vertex_name_path)-1),
-        "to",
-        np.sum(schedule),
-        verbose = options.verbose_restriction_improvement
-    )
-    INFO(
-        "double inegrator postprocessing time",
-        total_solver_time,
-        verbose = options.verbose_restriction_improvement
-    )
-
-    return x_traj_sol, v_traj_sol, a_traj_sol, schedule, total_solver_time
-
-
-
-def triple_integrator_postprocessing(
-                                    graph: PolynomialDualGCS,
-                                    options: ProgramOptions,
-                                    convex_set_path: T.List[ConvexSet],
-                                    vertex_name_path: T.List[str],
-                                    vel_bounds: ConvexSet,
-                                    acc_bounds: ConvexSet,
-                                    jerk_bounds: ConvexSet,
-                                    start_state:npt.NDArray,
-                                    target_state:npt.NDArray,
-                                    cost_function: T.Callable,
-                                    traj_reversed:bool,
-                                    past_solution=None
-                                    )-> T.Tuple[RestrictionSolution, T.List[float], float]:
-    unique_vertex_names, repeats = get_name_repeats(vertex_name_path)
-
-    INFO("using double integrator post-processing", verbose = options.verbose_restriction_improvement)
-    
-    delta_t = options.delta_t
-    ratio = options.double_integrator_post_processing_ratio
-
-    schedules = []
-    num = len(unique_vertex_names)-1
-    for i in range(2**num):
-        pick_or_not = bin(i)[2:]
-        if len(pick_or_not) < num:
-            pick_or_not = "0"*(num - len(pick_or_not)) + pick_or_not
-
-        delta_t_schedule = [delta_t] * (len(convex_set_path)-1)
-        for index, pick in enumerate(pick_or_not):
-            if pick == "1":
-                delta_t_schedule[sum(repeats[:index])] = delta_t * ratio
-        schedules.append(np.array(delta_t_schedule))
-    
-    # schedules = [options.delta_t * np.ones(len(vertex_name_path)-1)]
-
-    solve_times = [0.0]*len(schedules)
-    que = PriorityQueue()
-    for i, schedule in enumerate(schedules):
-        # ERROR(schedule)
-        # ERROR(vertex_name_path)
-        # ERROR(start_state, target_state)
-        # ERROR("---")
-        x_traj_sol, v_traj_sol, a_traj_sol, j_traj_sol, cost, solve_time = solve_triple_integrator_convex_restriction(
-            graph,
-            options,
-            convex_set_path,
-            vertex_name_path,
-            vel_bounds,
-            acc_bounds,
-            jerk_bounds,
-            start_state,
-            target_state,
-            schedule,
-            cost_function,
-            traj_reversed,
-            # past_solution
-            )
-        solve_times[i] = solve_time
-        if x_traj_sol is not None:
-            que.put((cost + np.random.uniform(0,1e-9), (x_traj_sol, v_traj_sol, a_traj_sol, j_traj_sol, schedule)))
-
-    if options.use_parallelized_solve_time_reporting:
-        num_parallel_solves = np.ceil(len(solve_times)/options.num_simulated_cores)
-        total_solver_time = np.max(solve_times)*num_parallel_solves
-        INFO(
-            "double inegrator postprocessing, num_parallel_solves",
-            num_parallel_solves,
-            verbose = options.verbose_restriction_improvement
-        )
-        INFO("each solve time", np.round(solve_times, 3), verbose = options.verbose_restriction_improvement)
-    else:
-        total_solver_time = np.sum(solve_times)
-
-
-    if que.empty():
-        WARN(
-            "double integrator no improvement",
-            verbose = options.verbose_restriction_improvement
-        )
-        return None, None, None, None, None, total_solver_time
-    
-    best_cost, (x_traj_sol, v_traj_sol, a_traj_sol, j_traj_sol, schedule) = que.get()
-
-
-    INFO(
-        "triple integrator time improvement from",
-        options.delta_t * (len(vertex_name_path)-1),
-        "to",
-        np.sum(schedule),
-        verbose = options.verbose_restriction_improvement
-    )
-    INFO(
-        "triple inegrator postprocessing time",
-        total_solver_time,
-        verbose = options.verbose_restriction_improvement
-    )
-
-    return x_traj_sol, v_traj_sol, a_traj_sol, j_traj_sol, schedule, total_solver_time
-
-
-
-
 def get_lookahead_cost(
     graph: PolynomialDualGCS,
     lookahead:int,
@@ -673,7 +440,7 @@ def get_lookahead_cost(
     K-step lookahead rollout policy.
     Returns a list of bezier curves. Each bezier curve is a list of control points (numpy arrays).
     """
-    graph.options.policy_lookahead = lookahead
+    graph.options.policy_lookahead_horizon = lookahead
     options = graph.options
     options.vertify_options_validity()
 
@@ -772,7 +539,7 @@ def lookahead_with_backtracking_policy(
 
             # stop if the number of iterations is too high
             number_of_iterations += 1
-            if number_of_iterations >= options.forward_iteration_limit:
+            if number_of_iterations >= options.iteration_termination_limit:
                 WARN("exceeded number of forward iterations")
                 return None, total_solver_time
         
@@ -833,13 +600,13 @@ def cheap_a_star_policy(
 
         if node.length() > max_path_length_so_far:
             max_path_length_so_far = node.length()
-        elif node.length() < max_path_length_so_far - options.a_star_backtrack_limit:
+        elif node.length() < max_path_length_so_far - options.a_star_backtracking_limit:
             continue
 
 
         # stop if the number of iterations is too high
         number_of_iterations += 1
-        if number_of_iterations >= options.forward_iteration_limit:
+        if number_of_iterations >= options.iteration_termination_limit:
             WARN("exceeded number of forward iterations")
             return None, total_solver_time
 
@@ -866,7 +633,7 @@ def cheap_a_star_policy(
         while not next_decision_que.empty():
             next_cost, next_node = next_decision_que.get()
             # TODO: fix this cost; need to extend
-            if options.policy_rollout_reoptimize_path_so_far_and_K_step:
+            if options.policy_optimize_path_so_far_and_K_step:
                 que.put( (next_cost+np.random.uniform(0,1e-9), next_node) )
             else:
                 que.put( (next_cost+np.random.uniform(0,1e-9) + node.get_cost(graph, False, False, target_state), next_node) )
@@ -889,7 +656,7 @@ def obtain_rollout(
     state: npt.NDArray,
     target_state: npt.NDArray = None,
 ) -> T.Tuple[RestrictionSolution, float]:
-    graph.options.policy_lookahead = lookahead
+    graph.options.policy_lookahead_horizon = lookahead
     graph.options.vertify_options_validity()
     options = graph.options
     
@@ -904,7 +671,7 @@ def obtain_rollout(
     # assert vertex.convex_set.PointInSet(state, 1e-3), "provided state " + str(state) + " not inside vertex " + vertex.name
     
     timer = timeit()
-    if options.use_greedy_multistep_lookahead_with_backtracking_policy:
+    if options.use_greedy_with_backtracking_policy:
         restriction, solve_time = lookahead_with_backtracking_policy(graph, vertex, state, target_state)
     elif options.use_a_star_with_limited_backtracking_policy:
         restriction, solve_time = cheap_a_star_policy(graph, vertex, state, target_state)
@@ -922,8 +689,8 @@ def get_statistics(
     verbose_comparison_to_optimal:bool = False,
     target_state: npt.NDArray = None) -> T.Tuple[bool, float, float, float, float]:
     options = graph.options
-    graph.options.policy_lookahead = lookahead
-    options.policy_lookahead = lookahead
+    graph.options.policy_lookahead_horizon = lookahead
+    options.policy_lookahead_horizon = lookahead
     options.vertify_options_validity()
 
     rollout_path, rollout_v_path, rollout_dt = obtain_rollout(graph, lookahead, vertex, state, target_state)
@@ -1040,8 +807,8 @@ def plot_rollout(
 ) -> T.Tuple[bool, float]:
     
     options = graph.options
-    graph.options.policy_lookahead = lookahead
-    options.policy_lookahead = lookahead
+    graph.options.policy_lookahead_horizon = lookahead
+    options.policy_lookahead_horizon = lookahead
     options.vertify_options_validity()
 
     if target_state is None:

@@ -5,3 +5,9 @@
 ```
 pip install -e .
 ```
+
+
+## known issues and TODO
+- ellipsoids for convex sets don't seem to work --- there is a bug that result in the cost-to-go just being constant
+- use_skill_compoisition_constraint_add hacky option needs to be removed and fixed
+- need to add proper parallelization of MathematicalPrograms solves, or alternatively use cvxpy

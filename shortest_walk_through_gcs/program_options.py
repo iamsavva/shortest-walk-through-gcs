@@ -68,36 +68,63 @@ class ProgramOptions:
         self.potentials_are_not_a_function_of_target_state = False
 
 
+
+
         # -----------------------------------------------------------------------------------
         # settings pertaining to the incremental search
         # -----------------------------------------------------------------------------------
 
-        # ----------------------------------
+        # solver selection for solving lookahead programs during incremental search
+        self.policy_solver = MosekSolver
+
+        # ---------------------------------------------
         # specify the policy
 
         # must select one or the other
-        self.use_greedy_multistep_lookahead_with_backtracking_policy = False
+        self.use_greedy_with_backtracking_policy = False
         self.use_a_star_with_limited_backtracking_policy = False
 
+        # ---------------------------------------------
+        # lookahead horizon for the policy and 
+        # at each iteration, we pick a k-step optimal action sequence, and execute just the first step.
+        self.policy_lookahead_horizon = 1
+        # if True, then at each iteration we re-optimize the path so far and the next K-step sequence simultaniously
+        self.policy_optimize_path_so_far_and_K_step = False
 
-        self.relax_target_condition_during_rollout = False
+        # terminate if the solution was not acquired after this many iterations
+        self.iteration_termination_limit = 1000
+
+        # limited backtracking in A-star
+        # if you currently expanded an n-step path, do not consider paths of length (n-limit)
+        self.a_star_backtracking_limit = 2        
+
+        # do not select a specfic k-step lookahead path as optimal more than this many times
+        # this helps avoid expanding the same aaa vertex sequence a thousand times and not making any forward progress
+        self.subpath_expansion_limit = 10
+
+        # a hack:
+        # if you know that your program is such that a walk would only ever revisit a vertex in sequence,
+        # i.e., aaabbbbccc, but never  abababc
+        # then set the next flag to True. this would reduce the search space.
+        self.do_not_return_to_previously_visited_vertices = False
 
 
-        self.policy_use_zero_heuristic = False 
+        # -----------------------------------------------------------------------------------
+        # settings pertaining to postprocessing of the walk
+        # -----------------------------------------------------------------------------------
+        self.postprocess_by_solving_restriction_on_mode_sequence = True
+
+        self.postprocess_via_shortcutting = False
+        self.max_num_shortcut_steps = 1
+
+        self.postprocess_shortcutting_long_sequences = False
+        self.long_sequence_num = 4
         
 
 
+
         # ---------------------------------------------
-        self.postprocess_via_shortcutting = False
-        self.max_num_shortcut_steps = 1
-        self.postprocess_by_solving_restriction_on_mode_sequence = True
-        self.verbose_restriction_improvement = False
-
-
-        # ----------------------------------
-        # solver selection for the lookaheads in the policy
-        self.policy_solver = MosekSolver
-        self.gcs_policy_solver = MosekSolver
+        # mosek-specific options for policy rollouts
         self.policy_MSK_DPAR_INTPNT_CO_TOL_REL_GAP = 1e-6
         self.policy_MSK_DPAR_INTPNT_CO_TOL_PFEAS = 1e-6
         self.policy_MSK_DPAR_INTPNT_CO_TOL_DFEAS = 1e-6
@@ -106,81 +133,70 @@ class ProgramOptions:
         self.MSK_IPAR_INTPNT_SOLVE_FORM = 2 # 0: pick, 1: primal, 2: dual
         self.MSK_IPAR_OPTIMIZER = None # free, intpnt, conic, primal_simplex, dual_simplex, free_simplex, mixed_int 
 
-
-        self.policy_lookahead = 1
-
+        # ---------------------------------------------
+        # snopt-specific options for poluicy rollouts
         self.policy_snopt_minor_iterations_limit = 500
         self.policy_snopt_major_iterations_limit = 1000
         self.policy_snopt_minor_feasibility_tolerance = 1e-6
         self.policy_snopt_major_feasibility_tolerance = 1e-6
         self.policy_snopt_major_optimality_tolerance = 1e-6
+        # whether to use warmstarting. only really relevant for SNOPT, as all other programs are solved with IPM solvers
         self.policy_use_warmstarting = False
+        
 
+        # verbosing
+        self.verbose_solve_times = False
         self.policy_verbose_choices = False
         self.policy_verbose_number_of_restrictions_solves = False
-
-        self.policy_rollout_reoptimize_path_so_far_and_K_step = False
-        self.so_far_and_k_step_ratio = 1
-        self.so_far_and_k_step_initials = 5
+        self.verbose_restriction_improvement = False
+        
 
         # ----------------------------------
         # GCS policy related settings.
         # as of now, only used for computing optimal solutions.
+        self.gcs_policy_solver = MosekSolver
         self.gcs_policy_use_convex_relaxation = True
         self.gcs_policy_max_rounding_trials = 300
         self.gcs_policy_max_rounded_paths = 300
         self.gcs_policy_use_preprocessing = True
 
-        self.verbose_solve_times = False
 
-        self.forward_iteration_limit = 1000
+        # ---------------------------------------------
+        # more subtle or hacky options; just do not change them
+        # ---------------------------------------------
 
+        self.so_far_and_k_step_ratio = 1
+        self.so_far_and_k_step_initials = 5
         
+        self.relax_target_condition_during_rollout = False
 
-        self.use_parallelized_solve_time_reporting = True
-        self.num_simulated_cores = 16
+        self.policy_use_zero_heuristic = False 
 
-        
         self.check_cost_to_go_at_point = False # set to False, faster rollout prog generation
-        
-
-        self.do_double_integrator_postprocessing = False
-        self.delta_t = None
-        self.double_integrator_post_processing_ratio = None
-
-        # ----------------------------------
-        # these should probably be depricated
-        # ----------------------------------
-
-        self.shortcut_by_scaling_dt = False
-
-        self.postprocess_shortcutting_long_sequences = False
-        self.long_sequence_num = 4
-
-        self.subpath_expansion_limit = 6
-
-        self.a_star_backtrack_limit = 2
-
-        self.no_vertex_revisit_along_the_walk = False
-
 
         # TODO: FIX THIS. this is a temporary hack.
         self.use_skill_compoisition_constraint_add = False
 
+
+        # solve time reporting specific nit
+        self.use_parallelized_solve_time_reporting = True
+        self.num_simulated_cores_for_parallelized_solve_time_reporting = 16
+
+        
+
         
 
     def vertify_options_validity(self):
-        assert self.policy_lookahead >= 1, "lookahead must be positive"
+        assert self.policy_lookahead_horizon >= 1, "lookahead must be positive"
         assert self.potential_type in (
             FREE_POLY,
             PSD_POLY,
             CONVEX_POLY,
         ), "undefined potentia type"
-        policy_options = np.array([self.use_greedy_multistep_lookahead_with_backtracking_policy, self.use_a_star_with_limited_backtracking_policy])
+        policy_options = np.array([self.use_greedy_with_backtracking_policy, self.use_a_star_with_limited_backtracking_policy])
         assert not np.sum(policy_options) < 1, "must select policy lookahead option"
         assert not np.sum(policy_options) > 1, "selected multiple policy lookahead options"
 
-        # assert not (self.policy_use_l2_norm_cost and self.policy_use_quadratic_cost)
 
 
 
