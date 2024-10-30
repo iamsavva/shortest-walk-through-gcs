@@ -23,6 +23,7 @@ from pydrake.geometry.optimization import ( # pylint: disable=import-error, no-n
     Hyperrectangle,
     ConvexSet,
     Point,
+    VPolytope
 )
 
 from pydrake.symbolic import ( # pylint: disable=import-error, no-name-in-module, unused-import
@@ -40,6 +41,8 @@ from pydrake.math import ( # pylint: disable=import-error, no-name-in-module, un
 
 from IPython.display import Markdown, display
 from scipy.linalg import block_diag
+
+
 
 def ERROR(*texts, verbose: bool = True):
     if verbose:
@@ -281,3 +284,4 @@ def recenter_convex_set(convex_set: ConvexSet, center:npt.NDArray) -> ConvexSet:
         return Point(center)
     else:
         assert False, "bad set in add_set_membership"
+

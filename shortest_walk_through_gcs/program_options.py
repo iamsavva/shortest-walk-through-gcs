@@ -3,52 +3,96 @@ import typing as T
 import numpy as np
 import numpy.typing as npt
 
-from pydrake.all import MosekSolver  # pylint: disable=import-error, no-name-in-module, unused-import
+from pydrake.all import MosekSolver, ClarabelSolver  # pylint: disable=import-error, no-name-in-module, unused-import
 
 from shortest_walk_through_gcs.util import timeit, INFO, YAY, ERROR, WARN  # pylint: disable=unused-import
 
-FREE_POLY = "free_poly"
-PSD_POLY = "psd_poly"
-CONVEX_POLY = "convex_poly"
+# polynomial types
+FREE_POLY = "free_poly" # free polynomial. more expressive, but makes the policy rollouts non-convex
+PSD_POLY = "psd_poly" # PSD polynomial: non-negative and convex
+CONVEX_POLY = "convex_poly" # convex polynomial, but not necessarily non-negative. only relevant for degree 2 polynomials
 
 
 class ProgramOptions:
     def __init__(self):
         # -----------------------------------------------------------------------------------
-        # general settings pertaining to any optimization program
+        # settings pertaining to the cost-to-go synthesis program
+        # -----------------------------------------------------------------------------------
+        # i refer to potentials and cost-to-go lower bounds interchangeably
+
+
+        # ----------------------------------
+        # lower bound potentials settings
+        # offline stage produces polynomial cost-to-go lower bounds. these settings govern the complexity of these lower bounds
+        self.potential_polynomial_degree = 2 # degree of the polynomial lower bound. at least 0. in practice, 0,1,2.
+        self.potential_type = PSD_POLY # see polynomial types above
+
+        # ----------------------------------
+        # S-procedure
+        self.s_procedure_multiplier_degree_for_linear_inequalities = 0 # must be even. higher = more expressive cost-to-go = larger program
+        self.s_procedure_take_product_of_linear_constraints = True # True = more expressive cost-to-go = larger program
+
+        # ------------------
+        # solver that's used for cost-to-go function synthesis
+        # if you don't have a license -- use ClarabelSolver
+        self.cost_to_go_synthesis_solver = MosekSolver
+
+        # ----------------------------------
+        # additional settings if MOSEK is used for cost-to-go function synthesis
+        self.cost_to_go_synthesis_use_robust_mosek_parameters = True
+        self.cost_to_go_synthesis_MSK_DPAR_INTPNT_CO_TOL_REL_GAP = 1e-8
+        self.cost_to_go_synthesis_MSK_DPAR_INTPNT_CO_TOL_PFEAS = 1e-8
+        self.cost_to_go_synthesis_MSK_DPAR_INTPNT_CO_TOL_DFEAS = 1e-8
+
+        # ----------------------------------
+        # special important settings
+
+        # if True, then don't use penalties. solving Shortest Walk Problem in GCS
+        # if False, then add penalties. solving Shortest Path Problem in GCS
+        self.solve_shortest_walk_not_path = False
+
+        # is solving the Shortest Path Problem, then set the flow vilation polynomial degree
+        self.flow_violation_polynomial_degree = 0 # even, 0 or 2
+
+        # consider transition (x_v, x_w) over the edge e=(v,w)
+        # if the following flag is True, then x_w \in X_v \cap X_w
+        # otherwise, x_w \ in X_w.
+        # TODO: this should really be a per-edge flag.
+        self.right_edge_point_must_be_inside_intersection_of_left_and_right_sets = False
+
+        # whether to synthesize a cost-to-go lower bounds that are a function of the target state
+        # if False, then must go from x_s to specific x_t, 
+        # and lower bounds are a fucntion of target state J_v(x_v,x_t).
+        # if True, then must from from x_s to any x_t \in X_t
+        # and lower bounds area function are just J_v(x_v)
+        self.potentials_are_not_a_function_of_target_state = False
+
+
+        # -----------------------------------------------------------------------------------
+        # settings pertaining to the incremental search
         # -----------------------------------------------------------------------------------
 
-        # potential type
-        self.potential_poly_deg = 2
-        self.pot_type = PSD_POLY
-        self.policy_lookahead = 1
-
         # ----------------------------------
-        # MOSEK solver related
-        self.value_synthesis_use_robust_mosek_parameters = True
-        self.value_synthesis_MSK_DPAR_INTPNT_CO_TOL_REL_GAP = 1e-8
-        self.value_synthesis_MSK_DPAR_INTPNT_CO_TOL_PFEAS = 1e-8
-        self.value_synthesis_MSK_DPAR_INTPNT_CO_TOL_DFEAS = 1e-8
+        # specify the policy
+
+        # must select one or the other
+        self.use_greedy_multistep_lookahead_with_backtracking_policy = False
+        self.use_a_star_with_limited_backtracking_policy = False
 
 
-        # ----------------------------------
-        # S procedure
-        self.s_procedure_multiplier_degree_for_linear_inequalities = 0
-        self.s_procedure_take_product_of_linear_constraints = True
-        # self.s_procedure_multiply_groups = True
+        self.relax_target_condition_during_rollout = False
+
+
+        self.policy_use_zero_heuristic = False 
+        
+
 
         # ---------------------------------------------
-        # parameters specific to bezier curves
         self.postprocess_via_shortcutting = False
         self.max_num_shortcut_steps = 1
         self.postprocess_by_solving_restriction_on_mode_sequence = True
         self.verbose_restriction_improvement = False
 
-        # ----------------------------------
-        # specify the policy
-        self.use_lookahead_with_backtracking_policy = False
-        self.use_cheap_a_star_policy = False
-        self.policy_use_zero_heuristic = False # if you wanna use Dijkstra instead
 
         # ----------------------------------
         # solver selection for the lookaheads in the policy
@@ -63,6 +107,8 @@ class ProgramOptions:
         self.MSK_IPAR_OPTIMIZER = None # free, intpnt, conic, primal_simplex, dual_simplex, free_simplex, mixed_int 
 
 
+        self.policy_lookahead = 1
+
         self.policy_snopt_minor_iterations_limit = 500
         self.policy_snopt_major_iterations_limit = 1000
         self.policy_snopt_minor_feasibility_tolerance = 1e-6
@@ -74,7 +120,6 @@ class ProgramOptions:
         self.policy_verbose_number_of_restrictions_solves = False
 
         self.policy_rollout_reoptimize_path_so_far_and_K_step = False
-        self.policy_rollout_reoptimize_path_so_far_before_K_step = False
         self.so_far_and_k_step_ratio = 1
         self.so_far_and_k_step_initials = 5
 
@@ -88,33 +133,24 @@ class ProgramOptions:
 
         self.verbose_solve_times = False
 
-        self.flow_violation_polynomial_degree = 0
-
         self.forward_iteration_limit = 1000
 
-        self.allow_vertex_revisits = False
-
-        self.relax_target_condition_during_rollout = False
+        
 
         self.use_parallelized_solve_time_reporting = True
         self.num_simulated_cores = 16
 
-        self.add_right_point_inside_intersection_constraint = False
         
-        self.use_add_sos_constraint = True # set to true, better results that way
-
-        self.dont_do_goal_conditioning = False
-
         self.check_cost_to_go_at_point = False # set to False, faster rollout prog generation
         
 
         self.do_double_integrator_postprocessing = False
         self.delta_t = None
         self.double_integrator_post_processing_ratio = None
+
         # ----------------------------------
         # these should probably be depricated
         # ----------------------------------
-
 
         self.shortcut_by_scaling_dt = False
 
@@ -135,17 +171,14 @@ class ProgramOptions:
 
     def vertify_options_validity(self):
         assert self.policy_lookahead >= 1, "lookahead must be positive"
-        assert self.pot_type in (
+        assert self.potential_type in (
             FREE_POLY,
             PSD_POLY,
             CONVEX_POLY,
         ), "undefined potentia type"
-        policy_options = np.array([self.use_lookahead_with_backtracking_policy, self.use_cheap_a_star_policy])
+        policy_options = np.array([self.use_greedy_multistep_lookahead_with_backtracking_policy, self.use_a_star_with_limited_backtracking_policy])
         assert not np.sum(policy_options) < 1, "must select policy lookahead option"
         assert not np.sum(policy_options) > 1, "selected multiple policy lookahead options"
-
-        assert np.sum( [self.policy_rollout_reoptimize_path_so_far_and_K_step, 
-                        self.policy_rollout_reoptimize_path_so_far_before_K_step]) <= 1, "reoptimizing twice"
 
         # assert not (self.policy_use_l2_norm_cost and self.policy_use_quadratic_cost)
 

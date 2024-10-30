@@ -67,7 +67,7 @@ def make_linear_set_inequalities(vars:npt.NDArray, convex_set: ConvexSet, set_ty
 def define_quadratic_polynomial(
     prog: MathematicalProgram,
     x: npt.NDArray,
-    pot_type: str,
+    potential_type: str,
     specific_J_matrix: npt.NDArray = None,
 ) -> T.Tuple[npt.NDArray, Expression]:
     # specific potential provided
@@ -80,14 +80,14 @@ def define_quadratic_polynomial(
         # potential is a free polynomial
         # TODO: change order to match Russ's notation
 
-        if pot_type == FREE_POLY:
+        if potential_type == FREE_POLY:
             J_matrix = prog.NewSymmetricContinuousVariables(state_dim + 1)
 
-        elif pot_type == PSD_POLY:
+        elif potential_type == PSD_POLY:
             J_matrix = prog.NewSymmetricContinuousVariables(state_dim + 1)
             prog.AddPositiveSemidefiniteConstraint(J_matrix)
 
-        elif pot_type == CONVEX_POLY:
+        elif potential_type == CONVEX_POLY:
             # i don't actually care about the whole thing being PSD;
             # only about the x component being convex
             J_matrix = prog.NewSymmetricContinuousVariables(state_dim + 1)
@@ -105,7 +105,7 @@ def define_quadratic_polynomial(
     return J_matrix, potential
 
 
-def make_potential(indet_list: npt.NDArray, pot_type:str, poly_deg:int, prog: MathematicalProgram) -> T.Tuple[Expression, npt.NDArray]:
+def make_potential(indet_list: npt.NDArray, potential_type:str, poly_deg:int, prog: MathematicalProgram) -> T.Tuple[Expression, npt.NDArray]:
     state_dim = len(indet_list)
     vars_from_indet = Variables(indet_list)
     # quadratic polynomial. special case due to convex functions and special quadratic implementations
@@ -114,7 +114,7 @@ def make_potential(indet_list: npt.NDArray, pot_type:str, poly_deg:int, prog: Ma
         b = prog.NewContinuousVariables(1)[0]
         J_matrix = make_moment_matrix(b, a, np.zeros((state_dim, state_dim)))
         potential = Expression(b)
-        if pot_type == PSD_POLY:
+        if potential_type == PSD_POLY:
             prog.AddLinearConstraint(b >= 0)
             
     elif poly_deg == 1:
@@ -123,16 +123,16 @@ def make_potential(indet_list: npt.NDArray, pot_type:str, poly_deg:int, prog: Ma
         J_matrix = make_moment_matrix(b, a, np.zeros((state_dim, state_dim)))
         potential = 2 * a.dot(indet_list) + b
     elif poly_deg == 2:
-        J_matrix, potential = define_quadratic_polynomial(prog, indet_list, pot_type)
+        J_matrix, potential = define_quadratic_polynomial(prog, indet_list, potential_type)
     else:
         J_matrix = None
         # free polynomial
-        if pot_type == FREE_POLY:
+        if potential_type == FREE_POLY:
             potential = prog.NewFreePolynomial(
                 vars_from_indet, poly_deg
             ).ToExpression()
         # PSD polynomial
-        elif pot_type == PSD_POLY:
+        elif potential_type == PSD_POLY:
             assert (
                 poly_deg % 2 == 0
             ), "can't make a PSD potential of uneven degree"
@@ -282,19 +282,7 @@ def define_sos_constraint_over_polyhedron_multivar_new(
     
     expr = function.Substitute(subsitution_dictionary) - s_procedure
 
-    # monomial_basis = unique_vars.reshape((len(unique_vars),1))
-    
-
     prog.AddSosConstraint(expr, monomial_basis=[Monomial(mon) for mon in unique_vars])
-
-
-    # expr = Polynomial(expr, all_variables)
-    # if options.use_add_sos_constraint:
-    #     prog.AddSosConstraint(expr)
-    # else:
-    #     new_poly = prog.NewSosPolynomial(all_variables, 2)[0]
-    #     prog.AddEqualityConstraintBetweenPolynomials(expr, new_poly)
-
 
 def get_set_membership_inequalities(x:npt.NDArray, convex_set:ConvexSet):
     linear_inequalities = []

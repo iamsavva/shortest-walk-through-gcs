@@ -11,6 +11,7 @@ from pydrake.solvers import (  # pylint: disable=import-error, no-name-in-module
     MosekSolver,
     MosekSolverDetails,
     SnoptSolver,
+    ClarabelSolver,
     IpoptSolver,
     SolverOptions,
     CommonSolverOption,
@@ -166,11 +167,11 @@ class DualVertex:
         Defining indeterminates for x and flow-in violation polynomial, if necesary
         """
         self.x = prog.NewIndeterminates(self.state_dim, "x_" + self.name)
-        if self.options.allow_vertex_revisits or self.vertex_is_target:
+        if self.options.solve_shortest_walk_not_path or self.vertex_is_target:
             self.total_flow_in_violation = Expression(0)
             self.total_flow_in_violation_mat = np.zeros((self.target_state_dim+1,self.target_state_dim+1))
         else:
-            if self.options.dont_do_goal_conditioning:
+            if self.options.potentials_are_not_a_function_of_target_state:
                 assert self.options.flow_violation_polynomial_degree == 0, "not doing goal conditioning -- flow violation poly degree must be 0"
             if self.options.flow_violation_polynomial_degree not in (0,2):
                 raise Exception("bad vilation polynomial degree " + str(self.options.flow_violation_polynomial_degree))
@@ -188,7 +189,7 @@ class DualVertex:
 
         if self.vertex_is_target:
             assert self.target_state_dim == self.state_dim, "vertex is target by state dims don't match"
-            if self.options.dont_do_goal_conditioning:
+            if self.options.potentials_are_not_a_function_of_target_state:
                 assert target_cost_matrix is not None, "not necessary, but i am simplifying for now"
             if target_cost_matrix is not None:
                 assert target_cost_matrix.shape == (2*self.target_state_dim+1, 2*self.target_state_dim+1), "bad shape for forced J matrix"
@@ -200,14 +201,14 @@ class DualVertex:
                 one_x_xt = np.hstack(([1], self.x, self.xt))
                 self.potential = np.sum( self.J_matrix * np.outer(one_x_xt, one_x_xt))
         else:
-            if self.target_set_type is Point or self.options.dont_do_goal_conditioning:
-                _, J_mat_vars = make_potential(self.x, self.options.pot_type, self.options.potential_poly_deg, prog)
+            if self.target_set_type is Point or self.options.potentials_are_not_a_function_of_target_state:
+                _, J_mat_vars = make_potential(self.x, self.options.potential_type, self.options.potential_polynomial_degree, prog)
                 self.J_matrix = block_diag(J_mat_vars, np.zeros((self.target_state_dim, self.target_state_dim)))
                 one_x_xt = np.hstack(([1], self.x, self.xt))
                 self.potential = np.sum( self.J_matrix * np.outer(one_x_xt, one_x_xt))
             else:
                 x_and_xt = np.hstack((self.x, self.xt))
-                self.potential, self.J_matrix = make_potential(x_and_xt, self.options.pot_type, self.options.potential_poly_deg, prog)
+                self.potential, self.J_matrix = make_potential(x_and_xt, self.options.potential_type, self.options.potential_polynomial_degree, prog)
 
         assert self.J_matrix.shape == (1+self.state_dim+self.target_state_dim, 1+self.state_dim+self.target_state_dim)
     
@@ -219,7 +220,7 @@ class DualVertex:
         """
         if xt is None and self.target_set_type is Point:
             xt = self.target_convex_set.x()
-        if self.options.dont_do_goal_conditioning:
+        if self.options.potentials_are_not_a_function_of_target_state:
             xt = np.zeros(self.target_state_dim)
         assert xt is not None, "did not pass xt to get the cost-to-go, when xt is non-unique"
         assert len(x) == self.state_dim
@@ -229,7 +230,7 @@ class DualVertex:
             prog = MathematicalProgram()
             x_var = prog.NewContinuousVariables(self.state_dim)
             add_set_membership(prog, self.convex_set, x_var, True)
-            if not self.options.dont_do_goal_conditioning:
+            if not self.options.potentials_are_not_a_function_of_target_state:
                 xt_var = prog.NewContinuousVariables(self.target_state_dim)
                 add_set_membership(prog, self.target_convex_set, xt_var, True)
             solution = Solve(prog)
@@ -267,7 +268,7 @@ class DualEdge:
         xt: npt.NDArray, 
         options: ProgramOptions,
         bidirectional_edge_violation=Expression(0),
-        add_right_point_inside_intersection_constraint = None
+        right_edge_point_must_be_inside_intersection_of_left_and_right_sets = None
     ):
         # TODO: pass target convex set into constructor
         self.name = name
@@ -290,9 +291,9 @@ class DualEdge:
         self.u_bounding_set = None
         self.groebner_basis_substitutions = dict()
         self.groebner_basis_equality_evaluators = []
-        self.add_right_point_inside_intersection_constraint = add_right_point_inside_intersection_constraint
-        if self.add_right_point_inside_intersection_constraint is None:
-            self.add_right_point_inside_intersection_constraint = self.options.add_right_point_inside_intersection_constraint
+        self.right_edge_point_must_be_inside_intersection_of_left_and_right_sets = right_edge_point_must_be_inside_intersection_of_left_and_right_sets
+        if self.right_edge_point_must_be_inside_intersection_of_left_and_right_sets is None:
+            self.right_edge_point_must_be_inside_intersection_of_left_and_right_sets = self.options.right_edge_point_must_be_inside_intersection_of_left_and_right_sets
 
     def make_constraints(self, prog:MathematicalProgram):
         linear_inequality_constraints = []
@@ -300,7 +301,7 @@ class DualEdge:
         equality_constraints = []
 
         xl, xr, xt = self.left.x, self.right.x, self.xt
-        if self.options.dont_do_goal_conditioning:
+        if self.options.potentials_are_not_a_function_of_target_state:
             xt = np.zeros(self.target_state_dim)
         if self.left.name == self.right.name:
             self.temp_right_indet = prog.NewIndeterminates(len(self.right.x))
@@ -439,7 +440,7 @@ class DualEdge:
             if self.left.name == self.right.name:
                 rv_linear_inequalities, rv_quadratic_inequalities = get_set_membership_inequalities(right_vars, self.right.convex_set)
             else:
-                if self.add_right_point_inside_intersection_constraint and (self.left.state_dim == self.right.state_dim):
+                if self.right_edge_point_must_be_inside_intersection_of_left_and_right_sets and (self.left.state_dim == self.right.state_dim):
                     rv_linear_inequalities, rv_quadratic_inequalities = get_set_intersection_inequalities(right_vars, self.left.convex_set, self.right.convex_set)
                 else:
                     rv_linear_inequalities = self.right.vertex_set_linear_inequalities
@@ -453,7 +454,7 @@ class DualEdge:
 
         # ------------------------------------------------
         # handle target vertex
-        if not self.options.dont_do_goal_conditioning:
+        if not self.options.potentials_are_not_a_function_of_target_state:
             # we are doing goal conditioning
             if self.right.target_set_type is Point:
                 # right vertex is a point -- substitutions
@@ -530,7 +531,7 @@ class PolynomialDualGCS:
         if relaxed_target_condition_for_policy is None:
             assert options.relax_target_condition_during_rollout is False, "relaxed target condition passed but not relaxing"
 
-        if options.dont_do_goal_conditioning:
+        if options.potentials_are_not_a_function_of_target_state:
             # assert relaxed_target_condition_for_policy is None, "not doing goal conditioning but terminaing conditioned passed"
             # assert options.relax_target_condition_during_rollout is False
             self.target_convex_set = target_convex_set
@@ -602,7 +603,7 @@ class PolynomialDualGCS:
         for (v_name, v_moments, vt_moments) in tqdm(self.push_up_vertices):
             self.vertices[v_name].push_up_on_potentials(self.prog, v_moments, vt_moments)
 
-            if not self.options.allow_vertex_revisits:
+            if not self.options.solve_shortest_walk_not_path:
                 for v in self.vertices.values():
                     v.push_down_on_flow_violation(self.prog, vt_moments)
 
@@ -694,7 +695,7 @@ class PolynomialDualGCS:
         adding two edges
         """
 
-        if not self.options.allow_vertex_revisits:
+        if not self.options.solve_shortest_walk_not_path:
             bidirectional_edge_violation, bidirectional_edge_violation_mat = make_potential(self.xt, PSD_POLY, self.options.flow_violation_polynomial_degree, self.prog)
             self.bidir_flow_violation_matrices.append(bidirectional_edge_violation_mat)
         else:
@@ -710,15 +711,15 @@ class PolynomialDualGCS:
         cost_function: T.Callable,
         cost_function_surrogate: T.Callable,
         bidirectional_edge_violation=Expression(0),
-        add_right_point_inside_intersection_constraint = None
+        right_edge_point_must_be_inside_intersection_of_left_and_right_sets = None
     ) -> DualEdge:
         """
         Options will default to graph initialized options if not specified
         """
         edge_name = get_edge_name(v_left.name, v_right.name)
         assert edge_name not in self.edges
-        if add_right_point_inside_intersection_constraint is None:
-            add_right_point_inside_intersection_constraint = self.options.add_right_point_inside_intersection_constraint
+        if right_edge_point_must_be_inside_intersection_of_left_and_right_sets is None:
+            right_edge_point_must_be_inside_intersection_of_left_and_right_sets = self.options.right_edge_point_must_be_inside_intersection_of_left_and_right_sets
         e = DualEdge(
             edge_name,
             v_left,
@@ -728,7 +729,7 @@ class PolynomialDualGCS:
             self.xt, 
             options=self.options,
             bidirectional_edge_violation=bidirectional_edge_violation,
-            add_right_point_inside_intersection_constraint = add_right_point_inside_intersection_constraint
+            right_edge_point_must_be_inside_intersection_of_left_and_right_sets = right_edge_point_must_be_inside_intersection_of_left_and_right_sets
         )
         self.edges[edge_name] = e
         v_left.add_edge_out(edge_name)
@@ -743,32 +744,40 @@ class PolynomialDualGCS:
         self.BuildTheProgram()
 
         timer = timeit()
-        mosek_solver = MosekSolver()
-        solver_options = SolverOptions()
+        if self.options.cost_to_go_synthesis_solver == MosekSolver:
+            mosek_solver = MosekSolver()
+            solver_options = SolverOptions()
 
-        # set the solver tolerance gaps
-        solver_options.SetOption(
-            MosekSolver.id(),
-            "MSK_DPAR_INTPNT_CO_TOL_REL_GAP",
-            self.options.value_synthesis_MSK_DPAR_INTPNT_CO_TOL_REL_GAP,
-        )
-        solver_options.SetOption(
-            MosekSolver.id(),
-            "MSK_DPAR_INTPNT_CO_TOL_PFEAS",
-            self.options.value_synthesis_MSK_DPAR_INTPNT_CO_TOL_PFEAS,
-        )
-        solver_options.SetOption(
-            MosekSolver.id(),
-            "MSK_DPAR_INTPNT_CO_TOL_DFEAS",
-            self.options.value_synthesis_MSK_DPAR_INTPNT_CO_TOL_DFEAS,
-        )
+            # set the solver tolerance gaps
+            solver_options.SetOption(
+                MosekSolver.id(),
+                "MSK_DPAR_INTPNT_CO_TOL_REL_GAP",
+                self.options.cost_to_go_synthesis_MSK_DPAR_INTPNT_CO_TOL_REL_GAP,
+            )
+            solver_options.SetOption(
+                MosekSolver.id(),
+                "MSK_DPAR_INTPNT_CO_TOL_PFEAS",
+                self.options.cost_to_go_synthesis_MSK_DPAR_INTPNT_CO_TOL_PFEAS,
+            )
+            solver_options.SetOption(
+                MosekSolver.id(),
+                "MSK_DPAR_INTPNT_CO_TOL_DFEAS",
+                self.options.cost_to_go_synthesis_MSK_DPAR_INTPNT_CO_TOL_DFEAS,
+            )
 
-        if self.options.value_synthesis_use_robust_mosek_parameters:
-            solver_options.SetOption(MosekSolver.id(), "MSK_DPAR_INTPNT_CO_TOL_REL_GAP", 1e-3)
-            solver_options.SetOption(MosekSolver.id(), "MSK_IPAR_INTPNT_SOLVE_FORM", 1)
+            if self.options.cost_to_go_synthesis_use_robust_mosek_parameters:
+                solver_options.SetOption(MosekSolver.id(), "MSK_DPAR_INTPNT_CO_TOL_REL_GAP", 1e-3)
+                solver_options.SetOption(MosekSolver.id(), "MSK_IPAR_INTPNT_SOLVE_FORM", 1)
 
-        # solve the program
-        self.value_function_solution = mosek_solver.Solve(self.prog, solver_options=solver_options)
+            # solve the program
+            self.value_function_solution = mosek_solver.Solve(self.prog, solver_options=solver_options)
+        else:
+            if self.options.cost_to_go_synthesis_solver is None:
+                some_solver = ClarabelSolver()
+            else:
+                some_solver = self.options.cost_to_go_synthesis_solver()
+            self.value_function_solution = some_solver.Solve(self.prog)
+
         timer.dt("Solve")
         diditwork(self.value_function_solution)
         for v in self.vertices.values():
@@ -804,7 +813,7 @@ class PolynomialDualGCS:
     def export_a_gcs(
             self, num_repeats:int, source_vertex_name: str, source_point: npt.NDArray, vertex_name_layers: T.List[T.List[str]] = None, each_layer_to_target:str = True
                      ) -> T.Tuple[GraphOfConvexSets, GraphOfConvexSets.Vertex, GraphOfConvexSets.Vertex]:
-        if not self.options.dont_do_goal_conditioning:
+        if not self.options.potentials_are_not_a_function_of_target_state:
             raise NotImplementedError("need to implement goal conditioned version, should be easy")
 
         gcs = GraphOfConvexSets()

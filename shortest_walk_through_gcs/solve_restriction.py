@@ -119,7 +119,7 @@ class RestrictionSolution:
         Note: this is cost of the full path with the target cost
         """
         if target_state is None:
-            if graph.options.dont_do_goal_conditioning:
+            if graph.options.potentials_are_not_a_function_of_target_state:
                 target_state = np.zeros(graph.target_convex_set.ambient_dimension())
             else:
                 assert isinstance(graph.target_convex_set, Point), "target set not passed when target set not a point"
@@ -195,7 +195,7 @@ def solve_parallelized_convex_restriction(
     timer = timeit()
 
     if target_state is None:
-        if options.dont_do_goal_conditioning:
+        if options.potentials_are_not_a_function_of_target_state:
             target_state = np.zeros(graph.target_convex_set.ambient_dimension())
         else:
             if isinstance(graph.target_convex_set, Point):
@@ -225,7 +225,7 @@ def solve_parallelized_convex_restriction(
             else:
                 assert i == len(vertex_path) - 1, "something is fishy"
 
-                if options.dont_do_goal_conditioning:
+                if options.potentials_are_not_a_function_of_target_state:
                     add_set_membership(prog, vertex.convex_set, x, True)
                 else:
                     # new implementation
@@ -246,7 +246,7 @@ def solve_parallelized_convex_restriction(
                 #     terminating_condition = recenter_convex_set(vertex.relaxed_target_condition_for_policy, target_state)
                 #     add_set_membership(prog, terminating_condition, x, True)
                 # else:
-                #     if options.dont_do_goal_conditioning:
+                #     if options.potentials_are_not_a_function_of_target_state:
                 #         add_set_membership(prog, vertex.convex_set, x, True)
                 #     else:
                 #         prog.AddLinearConstraint(eq(x, target_state))
@@ -259,7 +259,7 @@ def solve_parallelized_convex_restriction(
             else:
                 edge = graph.edges[get_edge_name(vertex_path[i - 1].name, vertex.name)]
 
-                if edge.add_right_point_inside_intersection_constraint and edge.left.state_dim == edge.right.state_dim:
+                if edge.right_edge_point_must_be_inside_intersection_of_left_and_right_sets and edge.left.state_dim == edge.right.state_dim:
                     if edge.left.name != edge.right.name:
                         add_set_membership(prog, edge.left.convex_set, x, True)
 
@@ -471,8 +471,8 @@ def solve_double_integrator_convex_restriction(
             edge_name = get_edge_name(vertex_name_path[i-1], vertex_name_path[i])
             if edge_name not in graph.edges:
                 edge_name = get_edge_name(vertex_name_path[i], vertex_name_path[i-1])
-            if graph.edges[edge_name].add_right_point_inside_intersection_constraint:
-            # if options.add_right_point_inside_intersection_constraint and vertex_name_path[i-1] != vertex_name_path[i]:
+            if graph.edges[edge_name].right_edge_point_must_be_inside_intersection_of_left_and_right_sets:
+            # if options.right_edge_point_must_be_inside_intersection_of_left_and_right_sets and vertex_name_path[i-1] != vertex_name_path[i]:
             #     YAY(convex_set_path[i-1].IntersectsWith(convex_set_path[i]))
             #     WARN(convex_set_path[i-1].Intersection(convex_set_path[i]).PointInSet(past_solution[0][i]))
                 add_set_membership(prog, convex_set_path[i-1], x, True)
@@ -480,8 +480,8 @@ def solve_double_integrator_convex_restriction(
             edge_name = get_edge_name(vertex_name_path[i+1], vertex_name_path[i])
             if edge_name not in graph.edges:
                 edge_name = get_edge_name(vertex_name_path[i], vertex_name_path[i+1])
-            # if options.add_right_point_inside_intersection_constraint and vertex_name_path[i] != vertex_name_path[i+1]:
-            if graph.edges[edge_name].add_right_point_inside_intersection_constraint:
+            # if options.right_edge_point_must_be_inside_intersection_of_left_and_right_sets and vertex_name_path[i] != vertex_name_path[i+1]:
+            if graph.edges[edge_name].right_edge_point_must_be_inside_intersection_of_left_and_right_sets:
             #     YAY(convex_set_path[i-1].IntersectsWith(convex_set_path[i]))
             #     WARN(convex_set_path[i-1].Intersection(convex_set_path[i]).PointInSet(past_solution[0][i]))
                 add_set_membership(prog, convex_set_path[i+1], x, True)
@@ -496,7 +496,7 @@ def solve_double_integrator_convex_restriction(
                 
             add_set_membership(prog, acc_bounds, a, True)
 
-            # if options.add_right_point_inside_intersection_constraint and vertex_name_path[i-1] != vertex_name_path[i]:
+            # if options.right_edge_point_must_be_inside_intersection_of_left_and_right_sets and vertex_name_path[i-1] != vertex_name_path[i]:
             #     YAY(convex_set_path[i-1].IntersectsWith(convex_set_path[i]))
             #     WARN(convex_set_path[i-1].Intersection(convex_set_path[i]).PointInSet(past_solution[0][i]))
 
@@ -647,8 +647,8 @@ def solve_triple_integrator_convex_restriction(
             edge_name = get_edge_name(vertex_name_path[i-1], vertex_name_path[i])
             if edge_name not in graph.edges:
                 edge_name = get_edge_name(vertex_name_path[i], vertex_name_path[i-1])
-            if graph.edges[edge_name].add_right_point_inside_intersection_constraint:
-            # if options.add_right_point_inside_intersection_constraint and vertex_name_path[i-1] != vertex_name_path[i]:
+            if graph.edges[edge_name].right_edge_point_must_be_inside_intersection_of_left_and_right_sets:
+            # if options.right_edge_point_must_be_inside_intersection_of_left_and_right_sets and vertex_name_path[i-1] != vertex_name_path[i]:
             #     YAY(convex_set_path[i-1].IntersectsWith(convex_set_path[i]))
             #     WARN(convex_set_path[i-1].Intersection(convex_set_path[i]).PointInSet(past_solution[0][i]))
                 add_set_membership(prog, convex_set_path[i-1], x, True)
@@ -656,8 +656,8 @@ def solve_triple_integrator_convex_restriction(
             edge_name = get_edge_name(vertex_name_path[i+1], vertex_name_path[i])
             if edge_name not in graph.edges:
                 edge_name = get_edge_name(vertex_name_path[i], vertex_name_path[i+1])
-            # if options.add_right_point_inside_intersection_constraint and vertex_name_path[i] != vertex_name_path[i+1]:
-            if graph.edges[edge_name].add_right_point_inside_intersection_constraint:
+            # if options.right_edge_point_must_be_inside_intersection_of_left_and_right_sets and vertex_name_path[i] != vertex_name_path[i+1]:
+            if graph.edges[edge_name].right_edge_point_must_be_inside_intersection_of_left_and_right_sets:
             #     YAY(convex_set_path[i-1].IntersectsWith(convex_set_path[i]))
             #     WARN(convex_set_path[i-1].Intersection(convex_set_path[i]).PointInSet(past_solution[0][i]))
                 add_set_membership(prog, convex_set_path[i+1], x, True)
@@ -672,7 +672,7 @@ def solve_triple_integrator_convex_restriction(
                 
             add_set_membership(prog, jerk_bounds, j, True)
 
-            # if options.add_right_point_inside_intersection_constraint and vertex_name_path[i-1] != vertex_name_path[i]:
+            # if options.right_edge_point_must_be_inside_intersection_of_left_and_right_sets and vertex_name_path[i-1] != vertex_name_path[i]:
             #     YAY(convex_set_path[i-1].IntersectsWith(convex_set_path[i]))
             #     WARN(convex_set_path[i-1].Intersection(convex_set_path[i]).PointInSet(past_solution[0][i]))
 

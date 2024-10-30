@@ -60,7 +60,7 @@ def get_all_k_step_paths_from_node(
     do not use this to compute optimal trajectories
     """
     options = graph.options
-    if options.allow_vertex_revisits:
+    if options.solve_shortest_walk_not_path:
         previous_vertex = None
         if node.length() >= 2:
             previous_vertex = node.vertex_path[-2]
@@ -81,7 +81,7 @@ def get_all_k_step_paths_from_node(
 
     vertex_paths = vertex_paths_after_prohibited
     
-    if options.allow_vertex_revisits and graph.options.no_vertex_revisit_along_the_walk:
+    if options.solve_shortest_walk_not_path and graph.options.no_vertex_revisit_along_the_walk:
         new_vertex_paths = []
         vertex_names_in_path_so_far = node.vertex_names()
         for vertex_path in vertex_paths:
@@ -103,10 +103,6 @@ def get_all_k_step_paths_from_node(
     decision_options = PriorityQueue()
 
     pre_solve_time = 0.0
-    # node = node.make_copy()
-    if options.policy_rollout_reoptimize_path_so_far_before_K_step and node.length() > 1:
-        node.reoptimize(graph, False, target_state, False)
-        WARN("this probably does not work")
     
     INFO("options", len(vertex_paths), verbose=options.policy_verbose_choices)
     solve_times = [0.0]*len(vertex_paths)
@@ -164,7 +160,7 @@ def get_k_step_optimal_paths(
     do not use this to compute optimal trajectories
     """
     options = graph.options
-    if options.allow_vertex_revisits:
+    if options.solve_shortest_walk_not_path:
         previous_vertex = None
         if node.length() >= 2:
             previous_vertex = node.vertex_path[-2]
@@ -185,7 +181,7 @@ def get_k_step_optimal_paths(
 
     vertex_paths = vertex_paths_after_prohibited
     
-    if options.allow_vertex_revisits and graph.options.no_vertex_revisit_along_the_walk:
+    if options.solve_shortest_walk_not_path and graph.options.no_vertex_revisit_along_the_walk:
         new_vertex_paths = []
         vertex_names_in_path_so_far = node.vertex_names()
         for vertex_path in vertex_paths:
@@ -207,15 +203,6 @@ def get_k_step_optimal_paths(
     decision_options = PriorityQueue()
 
     pre_solve_time = 0.0
-    # node = node.make_copy()
-    if options.policy_rollout_reoptimize_path_so_far_before_K_step and node.length() > 1:
-        node.reoptimize(graph, False, target_state, False)
-        WARN("this probably does not work")
-        # node, pre_solve_time = solve_convex_restriction(graph, 
-        #                                                 node.vertex_path, 
-        #                                                 node.point_initial(), 
-        #                                                 target_state=target_state, 
-        #                                                 one_last_solve=False)
     
     INFO("options", len(vertex_paths), verbose=options.policy_verbose_choices)
     solve_times = [0.0]*len(vertex_paths)
@@ -691,7 +678,7 @@ def get_lookahead_cost(
     options.vertify_options_validity()
 
     if target_state is None:
-        if options.dont_do_goal_conditioning:
+        if options.potentials_are_not_a_function_of_target_state:
             target_state = np.zeros(vertex.state_dim)
         else:
             assert vertex.target_set_type is Point, "target set not passed when target set not a point"
@@ -720,7 +707,7 @@ def lookahead_with_backtracking_policy(
     INFO("running lookahead backtracking", verbose = options.policy_verbose_choices)
 
     if target_state is None:
-        if options.dont_do_goal_conditioning:
+        if options.potentials_are_not_a_function_of_target_state:
             target_state = np.zeros(vertex.state_dim)
         else:
             assert vertex.target_set_type is Point, "target set not passed when target set not a point"
@@ -819,7 +806,7 @@ def cheap_a_star_policy(
     INFO("running cheap A*", verbose = options.policy_verbose_choices)
 
     if target_state is None:
-        if options.dont_do_goal_conditioning:
+        if options.potentials_are_not_a_function_of_target_state:
             target_state = np.zeros(vertex.state_dim)
         else:
             assert vertex.target_set_type is Point, "target set not passed when target set not a point"
@@ -888,7 +875,6 @@ def cheap_a_star_policy(
     if found_target:
         final_solution, solver_time = postprocess_the_path(graph, target_node, initial_state, target_state)
         total_solver_time += solver_time
-        # YAY("number of iterations", number_of_iterations)
         return final_solution, total_solver_time
         
     else:
@@ -908,7 +894,7 @@ def obtain_rollout(
     options = graph.options
     
     if target_state is None:
-        if options.dont_do_goal_conditioning:
+        if options.potentials_are_not_a_function_of_target_state:
             target_state = np.zeros(vertex.state_dim)
         else:
             assert vertex.target_set_type is Point, "target set not passed when target set not a point"
@@ -918,9 +904,9 @@ def obtain_rollout(
     # assert vertex.convex_set.PointInSet(state, 1e-3), "provided state " + str(state) + " not inside vertex " + vertex.name
     
     timer = timeit()
-    if options.use_lookahead_with_backtracking_policy:
+    if options.use_greedy_multistep_lookahead_with_backtracking_policy:
         restriction, solve_time = lookahead_with_backtracking_policy(graph, vertex, state, target_state)
-    elif options.use_cheap_a_star_policy:
+    elif options.use_a_star_with_limited_backtracking_policy:
         restriction, solve_time = cheap_a_star_policy(graph, vertex, state, target_state)
     else:
         raise Exception("not selected policy")
@@ -1016,7 +1002,7 @@ def plot_optimal(
     options.vertify_options_validity()
 
     # if target_state is None:
-    #     if options.dont_do_goal_conditioning:
+    #     if options.potentials_are_not_a_function_of_target_state:
     #         target_state = np.zeros(vertex.state_dim)
     #     else:
     #         assert vertex.target_set_type is Point, "target set not passed when target set not a point"
@@ -1059,7 +1045,7 @@ def plot_rollout(
     options.vertify_options_validity()
 
     if target_state is None:
-        if options.dont_do_goal_conditioning:
+        if options.potentials_are_not_a_function_of_target_state:
             target_state = np.zeros(vertex.state_dim)
         else:
             assert vertex.target_set_type is Point, "target set not passed when target set not a point"

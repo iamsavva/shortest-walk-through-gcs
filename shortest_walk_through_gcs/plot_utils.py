@@ -23,7 +23,6 @@ from shortest_walk_through_gcs.gcs_dual import PolynomialDualGCS, DualEdge, Dual
 
 
 
-
 # ------------------------------------------------------------------
 # bezier plot utils
 
@@ -273,12 +272,6 @@ def plot_bezier(
                     )
                 )
 
-def get_clockwise_vertices(vpoly:VPolytope):
-    vertices = list(vpoly.vertices().T)
-    c = np.mean(vpoly.vertices(),axis=1) # compute center
-    vertices.sort(key = lambda p: np.arctan2( (p-c)[1], (p-c)[0] ) )
-    return np.array(vertices).T
-
 def get_ellipse(mu, sigma):
     eigenvalues, eigenvectors = np.linalg.eig(sigma)
     mu = np.array(mu).reshape((2,1))
@@ -350,3 +343,11 @@ def plot_a_2d_graph(vertices:T.List[DualVertex], width = 800, fill_color = "mint
     )
 
     return fig
+
+
+def get_clockwise_vertices(vpoly:VPolytope):
+    vertices = list(vpoly.vertices().T)
+    c = np.mean(vpoly.vertices(),axis=1) # compute center
+    vertices.sort(key = lambda p: np.arctan2( (p-c)[1], (p-c)[0] ) )
+    return np.array(vertices).T
+
