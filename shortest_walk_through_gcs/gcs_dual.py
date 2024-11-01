@@ -69,7 +69,7 @@ from shortest_walk_through_gcs.util import ( # pylint: disable=import-error, no-
     add_set_membership,
 )  
 
-from shortest_walk_through_gcs.util_gcs_specific import get_edge_name, make_quadratic_cost_function_matrices
+from shortest_walk_through_gcs.util_gcs_specific import get_edge_name
 from shortest_walk_through_gcs.util_polynomial_handling import (
     define_quadratic_polynomial,
     define_sos_constraint_over_polyhedron_multivar_new,
@@ -155,7 +155,7 @@ class DualVertex:
         self.edges_in.append(name)
 
     def add_edge_out(self, name: str):
-        assert not self.vertex_is_target, "adding an edge to a target vertex"
+        assert not self.vertex_is_target, "adding an edge out of a target vertex, that makes no sense"
         assert name not in self.edges_out
         self.edges_out.append(name)
 
@@ -686,11 +686,13 @@ class PolynomialDualGCS:
         v_left: DualVertex,
         v_right: DualVertex,
         cost_function: T.Callable,
-        cost_function_surrogate: T.Callable,
+        cost_function_surrogate: T.Callable = None,
     ) -> T.Tuple[DualEdge, DualEdge]:
         """
         adding two edges
         """
+        if cost_function_surrogate is None:
+            cost_function_surrogate = cost_function
 
         if not self.options.solve_shortest_walk_not_path:
             bidirectional_edge_violation, bidirectional_edge_violation_mat = make_potential(self.xt, PSD_POLY, self.options.flow_violation_polynomial_degree, self.prog)
@@ -706,7 +708,7 @@ class PolynomialDualGCS:
         v_left: DualVertex,
         v_right: DualVertex,
         cost_function: T.Callable,
-        cost_function_surrogate: T.Callable,
+        cost_function_surrogate: T.Callable=None,
         bidirectional_edge_violation=Expression(0),
         right_edge_point_must_be_inside_intersection_of_left_and_right_sets = None
     ) -> DualEdge:
@@ -715,6 +717,8 @@ class PolynomialDualGCS:
         """
         edge_name = get_edge_name(v_left.name, v_right.name)
         assert edge_name not in self.edges
+        if cost_function_surrogate is None:
+            cost_function_surrogate = cost_function
         if right_edge_point_must_be_inside_intersection_of_left_and_right_sets is None:
             right_edge_point_must_be_inside_intersection_of_left_and_right_sets = self.options.right_edge_point_must_be_inside_intersection_of_left_and_right_sets
         e = DualEdge(

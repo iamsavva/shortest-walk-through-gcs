@@ -18,7 +18,7 @@ from queue import PriorityQueue
 
 from shortest_walk_through_gcs.program_options import FREE_POLY, PSD_POLY, CONVEX_POLY, ProgramOptions
 
-from shortest_walk_through_gcs.util import (
+from shortest_walk_through_gcs.util import ( # pylint: disable=import-error, no-name-in-module, unused-import
     timeit,
     diditwork,
     INFO,
@@ -27,7 +27,7 @@ from shortest_walk_through_gcs.util import (
     ERROR,
     ChebyshevCenter,
     get_kth_control_point
-)  # pylint: disable=import-error, no-name-in-module, unused-import
+)  
 
 from shortest_walk_through_gcs.gcs_dual import PolynomialDualGCS, DualEdge, DualVertex
 from shortest_walk_through_gcs.solve_restriction import solve_convex_restriction, solve_parallelized_convex_restriction, RestrictionSolution
