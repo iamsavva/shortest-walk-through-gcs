@@ -491,9 +491,11 @@ class DualEdge:
             + self.right.total_flow_in_violation
         )
 
-        unique_vars = np.hstack(unique_variables).flatten()
+        if len(unique_variables) > 0:
+            unique_vars = np.hstack(unique_variables).flatten()
+        else:
+            unique_vars = []
 
-        # INFO("num_unique_vars", len(unique_vars))
         define_sos_constraint_over_polyhedron_multivar_new(
             prog,
             unique_vars,
