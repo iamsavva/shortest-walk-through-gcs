@@ -224,16 +224,16 @@ def plot_rectangle(center, width, height, ax=None, **kwargs):
     return rect
 
 def animate_footstep_plan(
-    width, 
-    height, 
-    dt, 
+    width, # foot width
+    height, # foot height
+    dt, # timestep
     restriction: RestrictionSolution, 
-    z,
-    g,
-    xlim=[-1,1], 
+    z, # height of body
+    g, # gravitational constant
+    xlim=[-1,1], # plotting limits
     ylim=[-1,1], 
-    scale_time=1,
-    num_interpolation_points = 5,
+    scale_time=1, # make animation faster
+    num_interpolation_points = 5, # 
     velocity_scale = 0.1,
     bbox_to_anchor = (-0.2,-0.1,0,0),
 ):
