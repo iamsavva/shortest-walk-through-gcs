@@ -351,3 +351,36 @@ def get_clockwise_vertices(vpoly:VPolytope):
     vertices.sort(key = lambda p: np.arctan2( (p-c)[1], (p-c)[0] ) )
     return np.array(vertices).T
 
+
+
+def overlay_colors(hex_background, hex_foreground, alpha):
+    """
+    Calculate the resulting color of overlaying color B with alpha on top of color A.
+
+    Args:
+        hex_a (str): Background color in hex format (e.g., "#RRGGBB").
+        hex_b (str): Foreground color in hex format (e.g., "#RRGGBB").
+        alpha (float): Alpha value of the foreground color, between 0 and 1.
+
+    Returns:
+        str: Resulting color in hex format (e.g., "#RRGGBB").
+    """
+    # Convert hex colors to RGB components
+    def hex_to_rgb(hex_color):
+        hex_color = hex_color.lstrip('#')
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+    def rgb_to_hex(rgb):
+        return "#" + "".join(f"{c:02X}" for c in rgb)
+
+    rgb_a = hex_to_rgb(hex_background)
+    rgb_b = hex_to_rgb(hex_foreground)
+
+    # Calculate the resulting color for each channel
+    result_rgb = [
+        int((1 - alpha) * a + alpha * b)
+        for a, b in zip(rgb_a, rgb_b)
+    ]
+
+    # Convert resulting RGB to hex
+    return rgb_to_hex(result_rgb)

@@ -136,10 +136,13 @@ class TempData:
         self.vertex_path = np.array(restriction.vertex_names())
         self.dt = dt
         self.time_traj = np.array(list(range(0, len(self.right_foot_positions)))) * dt
+        self.z = z
+        self.g = g
 
-    def interpolate(self, num_points:int):
+    def interpolate(self, num_points:int, use_proper_cop_location=False):
         if num_points > 2:
             small_time_traj = np.hstack([np.linspace(self.time_traj[i], self.time_traj[i+1], num_points)[:-1] for i in range(len(self.time_traj)-1)] + [self.time_traj[-1]])
+            # print(small_time_traj)
             small_pos_traj = np.zeros((len(small_time_traj), 2))
             small_vel_traj = np.zeros((len(small_time_traj), 2))
             small_acc_traj = np.zeros((len(small_time_traj)-1, 2))
@@ -163,8 +166,10 @@ class TempData:
 
                 small_vertex_path.append(self.vertex_path[i//(num_points-1)])
 
-                # small_cop_traj[i] = small_pos_traj[i] - (z/g) * small_acc_traj[i]
-                small_cop_traj[i] = self.cop_positions[i//(num_points-1)]
+                if use_proper_cop_location:
+                    small_cop_traj[i] = small_pos_traj[i] - (self.z/self.g) * small_acc_traj[i]
+                else:
+                    small_cop_traj[i] = self.cop_positions[i//(num_points-1)]
                 c1 = (num_points -1 - i % (num_points-1))/(num_points-1)
                 c2 = 1-c1
                 small_left_positions[i] = self.left_foot_positions[i // (num_points-1)] * c1 + self.left_foot_positions[i // (num_points-1)+1] * c2
@@ -189,6 +194,22 @@ class TempData:
             self.vertex_path = small_vertex_path
             self.dt = self.dt/num_points
             self.time_traj = small_time_traj
+    
+    def get_kth_mode_indices(self, k):
+        current_index = 0
+        for i in range(k):
+            mode_now = self.vertex_path[current_index]
+            current_index += 1
+            if current_index >= len(self.vertex_path):
+                return None, None
+            while mode_now[:5] == self.vertex_path[current_index][:5]:
+                current_index +=1
+        start_index = current_index
+        mode_now = self.vertex_path[current_index]
+        while current_index < len(self.vertex_path) and mode_now[:5] == self.vertex_path[current_index][:5]:
+            current_index +=1
+        end_index = current_index
+        return start_index, end_index
 
 
 # helper function that plots a rectangle with given center, width, and height
@@ -236,6 +257,7 @@ def animate_footstep_plan(
     num_interpolation_points = 5, # 
     velocity_scale = 0.1,
     bbox_to_anchor = (-0.2,-0.1,0,0),
+    use_proper_cop_location = False
 ):
     # initialize figure for animation
     fig, ax = plt.subplots()
@@ -282,7 +304,7 @@ def animate_footstep_plan(
                 
     
     temp_data = TempData(restriction, dt, z, g)
-    temp_data.interpolate(num_interpolation_points)
+    temp_data.interpolate(num_interpolation_points, use_proper_cop_location)
 
     def animate(i):
         # scatter feet

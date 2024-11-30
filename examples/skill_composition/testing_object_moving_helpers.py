@@ -15,6 +15,8 @@ import math
 from PIL import ImageGrab
 from PIL import Image, ImageTk
 
+from shortest_walk_through_gcs.util_plotting import overlay_colors
+
 BLOCK_COLORS = ["#E3B5A4", "#E8D6CB", "#C3DFE0", "#F6E4F6", "#F4F4F4"]
 # BLOCK_COLORS = ["#843B62", "#E3B5A4", "#843B62", "#F6E4F6", "#F4F4F4"]
 # ARM_COLOR = "#843B62"
@@ -50,38 +52,6 @@ def rotate(points, angle, center):
         y_new = x_old * sin_val + y_old * cos_val
         new_points.append([x_new + cx, y_new + cy])
     return new_points
-
-def overlay_colors(hex_a, hex_b, alpha):
-    """
-    Calculate the resulting color of overlaying color B with alpha on top of color A.
-
-    Args:
-        hex_a (str): Background color in hex format (e.g., "#RRGGBB").
-        hex_b (str): Foreground color in hex format (e.g., "#RRGGBB").
-        alpha (float): Alpha value of the foreground color, between 0 and 1.
-
-    Returns:
-        str: Resulting color in hex format (e.g., "#RRGGBB").
-    """
-    # Convert hex colors to RGB components
-    def hex_to_rgb(hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-
-    def rgb_to_hex(rgb):
-        return "#" + "".join(f"{c:02X}" for c in rgb)
-
-    rgb_a = hex_to_rgb(hex_a)
-    rgb_b = hex_to_rgb(hex_b)
-
-    # Calculate the resulting color for each channel
-    result_rgb = [
-        int((1 - alpha) * a + alpha * b)
-        for a, b in zip(rgb_a, rgb_b)
-    ]
-
-    # Convert resulting RGB to hex
-    return rgb_to_hex(result_rgb)
 
 def get_vertices(cube:SimpleObject, x,y):
     w, h = cube.w, cube.h
