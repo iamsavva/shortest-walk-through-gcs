@@ -44,7 +44,7 @@ import numpy as np
 from IPython.display import HTML, display
 from matplotlib.animation import FuncAnimation
 import matplotlib.animation as animation
-from matplotlib.patches import Rectangle, Arrow, FancyArrow
+from matplotlib.patches import Rectangle, Arrow, FancyArrow, Circle
 
 
 def check_that_foot_forces_exist(restriction: RestrictionSolution, z, m, g, w, h, mu):
@@ -139,10 +139,30 @@ class TempData:
         self.z = z
         self.g = g
 
-    def interpolate(self, num_points:int, use_proper_cop_location=False):
+    def interpolate(self, num_points:int, use_proper_cop_location=False, circle=None):
+
+        def project_out(x_nom, circle):
+            circle_px, circle_py, circle_r = circle
+            def not_inside_circle(x,y):
+                return (x-circle_px)**2 + (y-circle_py)**2 - circle_r**2 >= 0
+            w = 0.05 # m
+            h = 0.10 # m
+            prog = MathematicalProgram()
+            x = prog.NewContinuousVariables(2)
+            prog.AddQuadraticCost((x-x_nom).dot(x-x_nom))
+            prog.AddConstraint(not_inside_circle(x[0]+w, x[1]+h))
+            prog.AddConstraint(not_inside_circle(x[0]-w, x[1]+h))
+            prog.AddConstraint(not_inside_circle(x[0]+w, x[1]-h))
+            prog.AddConstraint(not_inside_circle(x[0]-w, x[1]-h))
+            solution = Solve(prog)
+            assert solution.is_success()
+            return solution.GetSolution(x)
+
+
+
         if num_points > 2:
             small_time_traj = np.hstack([np.linspace(self.time_traj[i], self.time_traj[i+1], num_points)[:-1] for i in range(len(self.time_traj)-1)] + [self.time_traj[-1]])
-            # print(small_time_traj)
+            
             small_pos_traj = np.zeros((len(small_time_traj), 2))
             small_vel_traj = np.zeros((len(small_time_traj), 2))
             small_acc_traj = np.zeros((len(small_time_traj)-1, 2))
@@ -174,8 +194,11 @@ class TempData:
                 c2 = 1-c1
                 small_left_positions[i] = self.left_foot_positions[i // (num_points-1)] * c1 + self.left_foot_positions[i // (num_points-1)+1] * c2
                 small_right_positions[i] = self.right_foot_positions[i // (num_points-1)] * c1 + self.right_foot_positions[i // (num_points-1)+1] * c2
-                # small_cop_traj[i] =  self.cop_positions[i // (num_points-1)] * c1 + self.cop_positions[i // (num_points-1)+1] * c2
+                if circle is not None:
+                    small_left_positions[i] = project_out(small_left_positions[i], circle)
+                    small_right_positions[i] = project_out(small_right_positions[i], circle)
 
+                # small_cop_traj[i] =  self.cop_positions[i // (num_points-1)] * c1 + self.cop_positions[i // (num_points-1)+1] * c2
 
             small_cop_traj[-1] = self.cop_positions[-1]
             small_left_positions[-1] = self.left_foot_positions[-1]
@@ -257,10 +280,19 @@ def animate_footstep_plan(
     num_interpolation_points = 5, # 
     velocity_scale = 0.1,
     bbox_to_anchor = (-0.2,-0.1,0,0),
-    use_proper_cop_location = False
+    use_proper_cop_location = False,
+    plot_circle = None
 ):
     # initialize figure for animation
     fig, ax = plt.subplots()
+
+    if plot_circle is not None:
+        p1,p2,r = plot_circle
+        circle = Circle( (p1,p2), r, color='black', fill=True, alpha=0.9)
+        ax.add_patch(circle)
+
+
+
 
     # initial position of the feet
     com_position = ax.scatter(restriction.trajectory[0][0], restriction.trajectory[0][1], color="black", zorder=5, label="CoM")
@@ -297,6 +329,8 @@ def animate_footstep_plan(
         label="Right foot",
     )
 
+
+
     ax.scatter(restriction.trajectory[-1][0], restriction.trajectory[-1][1], marker="x", color="magenta", zorder=1, label="target")
 
     # misc settings
@@ -304,7 +338,7 @@ def animate_footstep_plan(
                 
     
     temp_data = TempData(restriction, dt, z, g)
-    temp_data.interpolate(num_interpolation_points, use_proper_cop_location)
+    temp_data.interpolate(num_interpolation_points, use_proper_cop_location, plot_circle)
 
     def animate(i):
         # scatter feet

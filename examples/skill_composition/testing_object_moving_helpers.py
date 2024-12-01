@@ -23,7 +23,8 @@ BLOCK_COLORS = ["#E3B5A4", "#E8D6CB", "#C3DFE0", "#F6E4F6", "#F4F4F4"]
 ARM_COLOR = "#ADDFFF"
 ARM_NOT_EMPTY_COLOR = "#621940"  # 5E3886 621940
 
-TABLE_COLOR = '#8789C0'
+# TABLE_COLOR = '#8789C0'
+TABLE_COLOR = '#808080'
 
 TEXT_COLOR = "#0B032D"
 BLACK = "#0B032D"
@@ -77,7 +78,9 @@ class Draw2DSolution:
         sleep_between_actions = 0.0,
         height_in_m = 4,
         border_buffer = 50,
-        draw_top=True
+        draw_top=True,
+        font_size = 25,
+        line_width=4
     ):
         self.num_blocks = num_blocks
         if obj_half_heights is None:
@@ -132,10 +135,12 @@ class Draw2DSolution:
         self.images = []
         self.sleep_between_actions = sleep_between_actions
         self.shadow_counter = 0
+        self.font_size = font_size
+        self.line_width = line_width
 
     def save_into_png(self, screenshot_name="temp", offset=28):
         x = self.tk.winfo_rootx()-offset
-        y = self.tk.winfo_rooty()-offset
+        y = self.tk.winfo_rooty()-offset+2
         width = self.width
         height = self.height
         takescreenshot = ImageGrab.grab(bbox=(x, y, x+width, y+height))
@@ -415,8 +420,9 @@ class Draw2DSolution:
                                      x + x_side, y + y_side,
                                         fill=overlay_colors(BACKGROUND, BLOCK_COLORS[block_num], alpha), 
                                         outline=overlay_colors(BACKGROUND, "#000000", alpha),
-                                        width=2)
-        self.canvas.create_text(x, y, text=block_num, fill=overlay_colors(BACKGROUND, TEXT_COLOR, alpha))
+                                        width=self.line_width)
+        # self.canvas.create_text(x, y, text=block_num, fill=overlay_colors(BACKGROUND, TEXT_COLOR, alpha))
+        self.canvas.create_text(x, y, text=block_num, fill=overlay_colors(BACKGROUND, TEXT_COLOR, alpha),font=("Helvetica", self.font_size))
         
     
     def draw_block_vertices(self, block_vertices, block_num, alpha=1):
@@ -425,8 +431,8 @@ class Draw2DSolution:
 
         self.canvas.create_polygon(pixel_vertices, fill=overlay_colors(BACKGROUND, BLOCK_COLORS[block_num], alpha), 
                                         outline=overlay_colors(BACKGROUND, "#000000", alpha), 
-                                        width=2)
-        self.canvas.create_text(center[0], center[1], text=block_num, fill=TEXT_COLOR)
+                                        width=self.line_width)
+        self.canvas.create_text(center[0], center[1], text=block_num, fill=overlay_colors(BACKGROUND, TEXT_COLOR, alpha), font=("Helvetica", self.font_size))
 
     def draw_arm(self, arm_state, alpha=1):
         if self.grasping:
@@ -448,11 +454,11 @@ class Draw2DSolution:
 
         self.canvas.create_rectangle(x - stem_width / 2., stemStart,
                                     x + stem_width / 2., y,
-                                    fill=overlay_colors(BACKGROUND, arm_color, alpha), outline=overlay_colors(BACKGROUND, "#000000", alpha), width=2)
+                                    fill=overlay_colors(BACKGROUND, arm_color, alpha), outline=overlay_colors(BACKGROUND, "#000000", alpha), width=self.line_width)
         
         self.canvas.create_rectangle(x - gripper_width / 2., y - gripper_height / 2.,
                                     x + gripper_width / 2., y + gripper_height / 2.,
-                                    fill=overlay_colors(BACKGROUND, arm_color, alpha), outline=overlay_colors(BACKGROUND, "#000000", alpha), width=2)
+                                    fill=overlay_colors(BACKGROUND, arm_color, alpha), outline=overlay_colors(BACKGROUND, "#000000", alpha), width=self.line_width)
         
 
     def draw_background(self, bin_color=TABLE_COLOR):
@@ -460,26 +466,27 @@ class Draw2DSolution:
         # left wall
         self.canvas.create_rectangle(-epsilon_for_view, -epsilon_for_view,
                                     self.border_buffer, self.height+epsilon_for_view,
-                                    fill=bin_color, outline='black', width=2)
+                                    fill=bin_color, outline='black', width=self.line_width)
         # right wall
         self.canvas.create_rectangle(self.width - self.border_buffer, -epsilon_for_view,
                                     self.width + epsilon_for_view, self.height,
-                                    fill=bin_color, outline='black', width=2)
+                                    fill=bin_color, outline='black', width=self.line_width)
         # bottom wall
         self.canvas.create_rectangle(-epsilon_for_view, self.height - self.border_buffer,
                                     self.width+epsilon_for_view, self.height + epsilon_for_view,
-                                    fill=bin_color, outline='black', width=2)
+                                    fill=bin_color, outline='black', width=self.line_width)
         if self.draw_top:
             # top wall
             self.canvas.create_rectangle(0, 0,
                                         self.width+epsilon_for_view, self.border_buffer,
-                                        fill=bin_color, outline='black', width=2)
+                                        fill=bin_color, outline='black', width=self.line_width)
         # draw goal region
         self.canvas.create_rectangle(self.transform_x_to_pixels(self.goal_min), self.height - self.border_buffer,
                                     self.transform_x_to_pixels(self.goal_max), self.height + epsilon_for_view,
-                                    fill="#C7FFD8", outline='black', width=2)
+                                    fill="#C7FFD8", outline='black', width=self.line_width)
+        
         # draw goal region text
-        self.canvas.create_text(self.transform_x_to_pixels((self.goal_min+self.goal_max)/2), self.height-self.border_buffer/2, text="target region", fill=TEXT_COLOR, font = ("Helvetica", self.goal_font))
+        # self.canvas.create_text(self.transform_x_to_pixels((self.goal_min+self.goal_max)/2), self.height-self.border_buffer/2, text="target region", fill=TEXT_COLOR, font = ("Helvetica", self.goal_font))
         
         # draw title
         # self.canvas.create_text(self.width/2, (self.border_buffer + 5)/2, text=self.title, fill=TEXT_COLOR,
