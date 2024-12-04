@@ -187,9 +187,23 @@ class TempData:
                 small_vertex_path.append(self.vertex_path[i//(num_points-1)])
 
                 if use_proper_cop_location:
-                    small_cop_traj[i] = small_pos_traj[i] - (self.z/self.g) * small_acc_traj[i]
+                    # small_cop_traj[i] = small_pos_traj[i] - (self.z/self.g) * small_acc_traj[i]
+                    # if one leg swinging --- use proper:
+                    if small_vertex_path[-1][:5] in ("Ld_Ru", "Lu_Rd"):
+                        small_cop_traj[i] = small_pos_traj[i] - (self.z/self.g) * small_acc_traj[i]
+                    else:
+                        small_cop_traj[i] = self.cop_positions[i//(num_points-1)]
+                        # c1 = (num_points -1 - i % (num_points-1))/(num_points-1)
+                        # c2 = 1-c1
+                        # small_cop_traj[i] = self.cop_positions[i // (num_points-1)] * c1 + self.cop_positions[i // (num_points-1)+1] * c2
+
                 else:
                     small_cop_traj[i] = self.cop_positions[i//(num_points-1)]
+                    # c1 = (num_points -1 - i % (num_points-1))/(num_points-1)
+                    # c2 = 1-c1
+                    # small_cop_traj[i] = self.cop_positions[i // (num_points-1)] * c1 + self.cop_positions[i // (num_points-1)+1] * c2
+
+
                 c1 = (num_points -1 - i % (num_points-1))/(num_points-1)
                 c2 = 1-c1
                 small_left_positions[i] = self.left_foot_positions[i // (num_points-1)] * c1 + self.left_foot_positions[i // (num_points-1)+1] * c2

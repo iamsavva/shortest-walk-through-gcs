@@ -17,18 +17,23 @@ from PIL import Image, ImageTk
 
 from shortest_walk_through_gcs.util_plotting import overlay_colors
 
-BLOCK_COLORS = ["#E3B5A4", "#E8D6CB", "#C3DFE0", "#F6E4F6", "#F4F4F4"]
+# BLOCK_COLORS = ["#E3B5A4", "#E8D6CB", "#9C6478", "#C3DFE0", "#F6E4F6", "#F4F4F4"]
+# BLOCK_COLORS = ["#E3A08D", "#F2DFD2", "#83425E"]
+BLOCK_COLORS = ["#E3AE99", "#EFD9CC", "#9F5B72"]
 # BLOCK_COLORS = ["#843B62", "#E3B5A4", "#843B62", "#F6E4F6", "#F4F4F4"]
 # ARM_COLOR = "#843B62"
 ARM_COLOR = "#ADDFFF"
-ARM_NOT_EMPTY_COLOR = "#621940"  # 5E3886 621940
+ARM_NOT_EMPTY_COLOR = "#ADDFFF"
+# ARM_COLOR = "#621940"  # 5E3886 621940
+# ARM_NOT_EMPTY_COLOR = "#621940"  # 5E3886 621940
 
 # TABLE_COLOR = '#8789C0'
 TABLE_COLOR = '#808080'
 
 TEXT_COLOR = "#0B032D"
 BLACK = "#0B032D"
-BACKGROUND = "#F5E9E2"
+# BACKGROUND = "#F5E9E2"
+BACKGROUND = "#FFFFFF"
 CELL_WIDTH = 50
 CELL_WIDTH = 90
 
@@ -80,7 +85,8 @@ class Draw2DSolution:
         border_buffer = 50,
         draw_top=True,
         font_size = 25,
-        line_width=4
+        line_width=4,
+        draw_borders=False
     ):
         self.num_blocks = num_blocks
         if obj_half_heights is None:
@@ -137,6 +143,7 @@ class Draw2DSolution:
         self.shadow_counter = 0
         self.font_size = font_size
         self.line_width = line_width
+        self.draw_borders=draw_borders
 
     def save_into_png(self, screenshot_name="temp", offset=28):
         x = self.tk.winfo_rootx()-offset
@@ -484,6 +491,14 @@ class Draw2DSolution:
         self.canvas.create_rectangle(self.transform_x_to_pixels(self.goal_min), self.height - self.border_buffer,
                                     self.transform_x_to_pixels(self.goal_max), self.height + epsilon_for_view,
                                     fill="#C7FFD8", outline='black', width=self.line_width)
+        
+    
+        if self.draw_borders:
+            self.canvas.create_rectangle(3, 0, 3, self.height, fill='black', outline='black', width=self.line_width)
+            self.canvas.create_rectangle(0, 5, self.width, 5, fill='black', outline='black', width=self.line_width)
+            self.canvas.create_rectangle(self.width-2, 0, self.width-2, self.height, fill='black', outline='black', width=self.line_width)
+            self.canvas.create_rectangle(0, self.height, self.width, self.height, fill='black', outline='black', width=self.line_width)
+
         
         # draw goal region text
         # self.canvas.create_text(self.transform_x_to_pixels((self.goal_min+self.goal_max)/2), self.height-self.border_buffer/2, text="target region", fill=TEXT_COLOR, font = ("Helvetica", self.goal_font))
