@@ -15,6 +15,8 @@ from pydrake.geometry.optimization import (  # pylint: disable=import-error, no-
 import plotly.graph_objects as go  # pylint: disable=import-error
 
 from queue import PriorityQueue
+from collections import Counter
+
 
 from shortest_walk_through_gcs.program_options import FREE_POLY, PSD_POLY, CONVEX_POLY, ProgramOptions
 
@@ -71,10 +73,14 @@ def get_k_step_optimal_paths(
     for vertex_path in vertex_paths:
         full_path = [v.name for v in  node.vertex_path[:-1] + vertex_path]
         dont_add = False
-        for prohibited_subpath in graph.table_of_prohibited_paths:
-            if ''.join(map(str, prohibited_subpath)) in ''.join(map(str, full_path)):
-                dont_add = True
-                break
+        if max(Counter(full_path).values()) > options.max_num_visits_to_vertex:
+            dont_add = True
+        
+        if not dont_add:
+            for prohibited_subpath in graph.table_of_prohibited_paths:
+                if ''.join(map(str, prohibited_subpath)) in ''.join(map(str, full_path)):
+                    dont_add = True
+                    break
         if not dont_add:
             vertex_paths_after_prohibited.append(vertex_path)
 
@@ -204,31 +210,41 @@ def lookahead_with_backtracking_policy(
             INFO("backtracking", verbose=options.policy_verbose_choices)
         else:
             node = decision_options[decision_index].get()[1] # type: RestrictionSolution
+
+            INFO("at", node.vertex_names(), verbose = options.policy_verbose_choices)
+            INFO(node.point_now(), verbose = options.policy_verbose_choices)
+
+            # don't expand any particular subpath more than a certain number of times
             if node.expanded_subpath is not None:
                 if node.expanded_subpath not in expanded_subpaths:
                     expanded_subpaths[node.expanded_subpath] = 1
                 else:
                     expanded_subpaths[node.expanded_subpath] += 1
                 if expanded_subpaths[node.expanded_subpath] > options.subpath_expansion_limit:
+                    WARN("not examining because subpath expansion limit", verbose = options.policy_verbose_choices)
                     continue
 
+            
 
-            INFO("at", node.vertex_names(), verbose = options.policy_verbose_choices)
+
+            
 
             if node.vertex_now().vertex_is_target:
+                INFO("at target")
                 found_target = True
                 target_node = node
                 break
 
             # heuristic: don't ever consider a point you've already been in
-            # stop = False
-            # for point in node.trajectory[:-1]:
-            #     if len(node.point_now()) == len(point) and np.allclose(node.point_now(), point, atol=1e-3):
-            #         stop = True
-            #         break
-            # if stop:
-            #     print("stopping cause in same point")
-            #     continue
+            if options.dont_ever_revisit_the_same_point:
+                stop = False
+                for point in node.trajectory[:-1]:
+                    if len(node.point_now()) == len(point) and np.allclose(node.point_now(), point, atol=1e-3):
+                        stop = True
+                        break
+                if stop:
+                    WARN("stopping cause in same point")
+                    continue
 
             # add another priority que if needed (i.e., first time we are at horizon H)
             if len(decision_options) == decision_index + 1:

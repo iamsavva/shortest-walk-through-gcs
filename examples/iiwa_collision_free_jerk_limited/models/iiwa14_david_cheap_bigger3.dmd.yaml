@@ -131,27 +131,27 @@ directives:
 
 # # Add cracker
 # - add_model:
-#     name: cracker_s
-#     file: package://drake_models/ycb/003_cracker_box.sdf
+#     name: mustard_s
+#     file: package://drake_models/ycb/006_mustard_bottle.sdf
 # - add_weld:
 #     parent: world
-#     child: cracker_s::base_link_cracker
+#     child: mustard_s::base_link_mustard
 #     X_PC:
-#       translation: [0.34, 0.73, 0.615]
-#       rotation: !Rpy { deg: [-90.0, 0.0, 232 ]}
+#       translation: [0.42, 0.63, 0.105]
+#       rotation: !Rpy { deg: [-90.0, 0.0, 80 ]}
 
       
 
 # # Add cracker
 # - add_model:
-#     name: cracker_t
-#     file: package://drake_models/ycb/003_cracker_box.sdf
+#     name: mustard_t
+#     file: package://drake_models/ycb/006_mustard_bottle.sdf
 # - add_weld:
 #     parent: world
-#     child: cracker_t::base_link_cracker
+#     child: mustard_t::base_link_mustard
 #     X_PC:
-#       translation: [-0.37, -0.61, 0.05]
-#       rotation: !Rpy { deg: [0, 0, -160 ]}
+#       translation: [-0.5, -0.51, 0.05]
+#       rotation: !Rpy { deg: [0, 0, -130 ]}
 
 
 
@@ -163,7 +163,7 @@ directives:
     parent: world
     child: mustard_s::base_link_mustard
     X_PC:
-      translation: [0.42, 0.63, 0.105]
+      translation: [0.51, 0.61, 0.63]
       rotation: !Rpy { deg: [-90.0, 0.0, 80 ]}
 
       
@@ -176,5 +176,7 @@ directives:
     parent: world
     child: mustard_t::base_link_mustard
     X_PC:
-      translation: [-0.5, -0.51, 0.05]
-      rotation: !Rpy { deg: [0, 0, -130 ]}
+      translation: [-0.52, -0.55, 0.05]
+      rotation: !Rpy { deg: [0, 0, -140 ]}
+
+      

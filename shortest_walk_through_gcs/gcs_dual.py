@@ -283,6 +283,8 @@ class DualEdge:
         self.linear_inequality_evaluators = []
         self.quadratic_inequality_evaluators = []
         self.equality_evaluators = []
+        self.one_last_solve_equality_evaluators = []
+        self.one_last_solve_linear_inequality_evaluators = []
 
         self.u = None
         self.u_bounding_set = None

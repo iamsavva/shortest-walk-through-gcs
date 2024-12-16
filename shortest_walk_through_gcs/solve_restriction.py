@@ -252,6 +252,7 @@ def solve_parallelized_convex_restriction(
                 #         prog.AddLinearConstraint(eq(x, target_state))
 
 
+
             if i == 0:
                 # NOTE: if state_now is None, we have a free initial state problem
                 if state_now is not None:
@@ -270,6 +271,14 @@ def solve_parallelized_convex_restriction(
                     else:
                         # NOTE: this is heuristic. we don't have a guess for these variables
                         prog.SetInitialGuess(u, warmstart.edge_variable_trajectory[-1])
+
+
+                if one_last_solve:
+                    for evaluator in edge.one_last_solve_linear_inequality_evaluators:
+                        add_cons(prog, evaluator(vertex_trajectory[i-1], u, x, target_state), "ge", True)
+
+                    for evaluator in edge.one_last_solve_equality_evaluators:
+                        add_cons(prog, evaluator(vertex_trajectory[i-1], u, x, target_state), "eq", True)
 
                 edge_variable_trajectory.append(u)
                 if edge.u_bounding_set is not None:
