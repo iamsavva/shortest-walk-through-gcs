@@ -295,7 +295,10 @@ def animate_footstep_plan(
     velocity_scale = 0.1,
     bbox_to_anchor = (-0.2,-0.1,0,0),
     use_proper_cop_location = False,
-    plot_circle = None
+    plot_circle = None,
+    left_leg_contact = ("target", "Ld_Rd_2", "Ld_Rd_1", "Ld_Ru_2", "Ld_Ru_1"),
+    right_leg_contact = ("target", "Ld_Rd_2", "Ld_Rd_1", "Lu_Rd_1", "Lu_Rd_2"),
+    stones = []
 ):
     # initialize figure for animation
     fig, ax = plt.subplots()
@@ -305,7 +308,16 @@ def animate_footstep_plan(
         circle = Circle( (p1,p2), r, color='black', fill=True, alpha=0.9)
         ax.add_patch(circle)
 
-
+    for (stone_lb, stone_ub) in stones:
+            plot_rectangle(
+                (np.array(stone_lb) + stone_ub)/2,  # center
+                stone_ub[0]-stone_lb[0],  # width
+                stone_ub[1]-stone_lb[1],  # eight
+                ax=ax,
+                edgecolor="mintcream",
+                zorder=3,
+                label="Left foot",
+            )
 
 
     # initial position of the feet
@@ -339,8 +351,7 @@ def animate_footstep_plan(
         height,  # eight
         ax=ax,
         edgecolor="orange",
-        zorder=3,
-        label="Right foot",
+        zorder=1,
     )
 
 
@@ -370,11 +381,11 @@ def animate_footstep_plan(
         c2c = np.array([width, height])
         left_limits.set_xy(temp_data.left_foot_positions[i] - c2c)
         right_limits.set_xy(temp_data.right_foot_positions[i] - c2c)
-        if temp_data.vertex_path[i] in ("target", "Ld_Rd_2", "Ld_Rd_1", "Ld_Ru_2", "Ld_Ru_1"):
+        if temp_data.vertex_path[i] in left_leg_contact:
             left_limits.set_facecolor("blue")
         else:
             left_limits.set_facecolor("none")
-        if temp_data.vertex_path[i] in ("target", "Ld_Rd_2", "Ld_Rd_1", "Lu_Rd_1", "Lu_Rd_2"):
+        if temp_data.vertex_path[i] in right_leg_contact:
             right_limits.set_facecolor("orange")
         else:
             right_limits.set_facecolor("none")

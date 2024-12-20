@@ -163,7 +163,8 @@ def double_integrator_postprocessing(
                                     traj_reversed:bool,
                                     delta_t:float,
                                     ratio:float,
-                                    past_solution=None
+                                    past_solution=None,
+                                    max_num_picks = 3
                                     )-> T.Tuple[RestrictionSolution, T.List[float], float]:
     
     unique_vertex_names, repeats = get_name_repeats(vertex_name_path)
@@ -171,19 +172,38 @@ def double_integrator_postprocessing(
     INFO("using double integrator post-processing", verbose = options.verbose_restriction_improvement)
     
     schedules = []
-    num = len(unique_vertex_names)-1
+    num = len(unique_vertex_names)
     for i in range(2**num):
         pick_or_not = bin(i)[2:]
         if len(pick_or_not) < num:
             pick_or_not = "0"*(num - len(pick_or_not)) + pick_or_not
+        if np.sum([int(x) for x in pick_or_not]) > 3:
+            continue
+        if num == 6 and (pick_or_not[3] == "1"):
+            continue
+        if np.sum([int(x) for x in pick_or_not]) == 3 and pick_or_not[-1] == "1":
+            continue
 
         delta_t_schedule = [delta_t] * (len(convex_set_path)-1)
+        num_picks = 0
         for index, pick in enumerate(pick_or_not):
             if pick == "1":
                 delta_t_schedule[sum(repeats[:index])] = delta_t * ratio
-        schedules.append(np.array(delta_t_schedule))
+                num_picks += 1
+
+        # if len(vertex_name_path) <= 9 and num_picks <= 1:
+        #     schedules.append(np.array(delta_t_schedule))
+        if len(vertex_name_path) <= 11 and num_picks <= 2:
+            schedules.append(np.array(delta_t_schedule))
+        elif len(vertex_name_path) <= 14 and num_picks <= 3:
+            schedules.append(np.array(delta_t_schedule))
     
+    print(len(schedules))
     # schedules = [options.delta_t * np.ones(len(vertex_name_path)-1)]
+
+    if len(schedules) == 0:
+        ERROR("what")
+        return None, None, None, None, 0.0
 
     solve_times = [0.0]*len(schedules)
     que = PriorityQueue()
@@ -231,6 +251,7 @@ def double_integrator_postprocessing(
         return None, None, None, None, total_solver_time
     
     best_cost, (x_traj_sol, v_traj_sol, a_traj_sol, schedule) = que.get()
+    INFO([ 0 if np.allclose(x, delta_t) else 1 for x in schedule ])
 
 
     INFO(
@@ -499,7 +520,7 @@ def solve_double_integrator_convex_restriction(
             #     add_set_membership(prog, convex_set_path[i-1], x, True)
 
             cost = cost_function(np.hstack((x_traj[i-1],v_traj[i-1])), a, np.hstack((x_traj[i],v_traj[i])), target_state, dt[i-1])
-            prog.AddCost(cost)
+            prog.AddQuadraticCost(cost)
             
             prog.AddLinearConstraint(eq(x_traj[i], x_traj[i-1] + v_traj[i-1]*dt[i-1] + a_traj[i-1] * dt[i-1]**2 / 2 ))
             prog.AddLinearConstraint(eq(v_traj[i], v_traj[i-1] + a_traj[i-1]*dt[i-1]))
@@ -518,21 +539,21 @@ def solve_double_integrator_convex_restriction(
                 "MSK_DPAR_INTPNT_TOL_INFEAS",
                 options.MSK_DPAR_INTPNT_TOL_INFEAS,
             )
-            # solver_options.SetOption(
-            #     MosekSolver.id(),
-            #     "MSK_DPAR_INTPNT_CO_TOL_REL_GAP",
-            #     options.policy_MSK_DPAR_INTPNT_CO_TOL_REL_GAP,
-            # )
-            # solver_options.SetOption(
-            #     MosekSolver.id(),
-            #     "MSK_DPAR_INTPNT_CO_TOL_PFEAS",
-            #     options.policy_MSK_DPAR_INTPNT_CO_TOL_PFEAS,
-            # )
-            # solver_options.SetOption(
-            #     MosekSolver.id(),
-            #     "MSK_DPAR_INTPNT_CO_TOL_DFEAS",
-            #     options.policy_MSK_DPAR_INTPNT_CO_TOL_DFEAS,
-            # )
+            solver_options.SetOption(
+                MosekSolver.id(),
+                "MSK_DPAR_INTPNT_CO_TOL_REL_GAP",
+                options.policy_MSK_DPAR_INTPNT_CO_TOL_REL_GAP,
+            )
+            solver_options.SetOption(
+                MosekSolver.id(),
+                "MSK_DPAR_INTPNT_CO_TOL_PFEAS",
+                options.policy_MSK_DPAR_INTPNT_CO_TOL_PFEAS,
+            )
+            solver_options.SetOption(
+                MosekSolver.id(),
+                "MSK_DPAR_INTPNT_CO_TOL_DFEAS",
+                options.policy_MSK_DPAR_INTPNT_CO_TOL_DFEAS,
+            )
 
             solver_options.SetOption(MosekSolver.id(), 
                                     "MSK_IPAR_PRESOLVE_USE", 

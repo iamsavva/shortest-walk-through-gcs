@@ -230,7 +230,6 @@ def get_normalized_constraint_riding(v_traj, a_traj, add_one_at_end=True):
     return vel_cons, acc_cons
 
 
-
 def get_normalized_constraint_riding_with_jerk(v_traj, a_traj, j_traj):
     arm_components = arm_components_loader(use_meshcat=False)
     vel_ub = arm_components.plant.GetVelocityUpperLimits()
@@ -323,6 +322,7 @@ def visualize_trajectory(pos_traj, vel_traj, time_traj):
 def reparameterize_with_toppra(
     trajectory: Trajectory,
     num_grid_points: int = 1000,
+    add_acc_limits=True,
 ) -> PathParameterizedTrajectory:
     arm_components=arm_components_loader(use_meshcat=False)
     plant = arm_components.plant
@@ -337,7 +337,8 @@ def reparameterize_with_toppra(
     acceleration_limits=plant.GetAccelerationUpperLimits()
 
     toppra.AddJointVelocityLimit(-velocity_limits, velocity_limits)
-    toppra.AddJointAccelerationLimit(-acceleration_limits, acceleration_limits)
+    if add_acc_limits:
+        toppra.AddJointAccelerationLimit(-acceleration_limits, acceleration_limits)
     timer = timeit()
     time_trajectory = toppra.SolvePathParameterization()
     toppra_solve_tome = timer.dt("toppra solve", False)
@@ -389,7 +390,10 @@ def visualize_trajectory_pointclouds(time_traj,
                                      mid_arm_offset = 0.12, 
                                      acc_rgb = (1,0,0), 
                                      vel_rgb = (0,1,0), 
-                                     normal_rgb=(0,0,1)):
+                                     normal_rgb=(0,0,1),
+                                     acc_violated_rgb=(1,0,0),
+                                     con_bound = 0.95
+                                     ):
     arm_file_path="./models/iiwa14_david_cheap_bigger3.dmd.yaml"
     num_joints = 7
     time_step = 0.0
@@ -437,7 +441,6 @@ def visualize_trajectory_pointclouds(time_traj,
                                             p=[0, 0, 0.114]))
         # break
         
-
     plant.Finalize()
 
     placeholder_trajectory = PiecewisePolynomial(np.zeros((num_joints, 1)))
@@ -478,19 +481,22 @@ def visualize_trajectory_pointclouds(time_traj,
 
     arm_components.meshcat.SetCameraPose([-1,0.4,1],[0,0,0.3])
 
-
+    acc_con_violated_end_effector_locations = []
     acc_con_end_effector_locations = []
     vel_cons_end_effector_locations = []
     normal_end_effector_locations = []
 
     for i, pos in enumerate(pos_traj):
-        if acc_cons[i] > 0.95:
+        if acc_cons[i] > 1.001:
+            acc_con_violated_end_effector_locations += [pos]
+        elif acc_cons[i] > con_bound:
             acc_con_end_effector_locations += [pos]
-        elif vel_cons[i] > 0.95:
+        elif vel_cons[i] > con_bound:
             vel_cons_end_effector_locations += [pos]
         else:
             normal_end_effector_locations += [pos]
 
+    acc_con_violated_end_effector_locations = ForwardKinematics(acc_con_violated_end_effector_locations)
     acc_con_end_effector_locations = ForwardKinematics(acc_con_end_effector_locations)
     vel_cons_end_effector_locations = ForwardKinematics(vel_cons_end_effector_locations)
     normal_end_effector_locations = ForwardKinematics(normal_end_effector_locations)
@@ -510,6 +516,11 @@ def visualize_trajectory_pointclouds(time_traj,
     pointcloud.mutable_xyzs()[:] = np.array(list(map(lambda X: X.translation(), acc_con_end_effector_locations))).T[:]
     r, g, b, a = acc_rgb[0], acc_rgb[1], acc_rgb[2], 1
     arm_components.meshcat.SetObject("paths/acc", pointcloud, 0.035, rgba=Rgba( r,g,b,a ) )
+
+    pointcloud = PointCloud(len(acc_con_violated_end_effector_locations))
+    pointcloud.mutable_xyzs()[:] = np.array(list(map(lambda X: X.translation(), acc_con_violated_end_effector_locations))).T[:]
+    r, g, b, a = acc_violated_rgb[0], acc_violated_rgb[1], acc_violated_rgb[2], 1
+    arm_components.meshcat.SetObject("paths/acc_violated", pointcloud, 0.035, rgba=Rgba( r,g,b,a ) )
 
 
     # arm_components.plant.SetPositions(plant_context, small_pos_traj[-1])

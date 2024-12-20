@@ -373,21 +373,33 @@ def postprocess_the_path(graph:PolynomialDualGCS,
                           target_state:npt.NDArray = None,
                           ) -> T.Tuple[RestrictionSolution, float]:
     options = graph.options
-    cost_before = restriction.get_cost(graph, False, not options.policy_use_zero_heuristic, target_state=target_state)
+    
     timer = timeit()
     total_solver_time = 0.0
     # solve a convex restriction on the vertex sequence
-    best_restriction = restriction
+    # best_restriction = restriction
+    
+
+    best_restriction, solver_time = solve_convex_restriction(graph, restriction.vertex_path, initial_state, verbose_failure=False, target_state=target_state, one_last_solve = True)
+    if best_restriction is None:
+        best_restriction, solver_time = solve_convex_restriction(graph, restriction.vertex_path[:-1] + [restriction.vertex_path[-2], restriction.vertex_path[-1]], initial_state, verbose_failure=False, target_state=target_state, one_last_solve = True)
+        if best_restriction is None:
+            return restriction, solver_time
+    cost_before = restriction.get_cost(graph, False, not options.policy_use_zero_heuristic, target_state=target_state)
     best_cost = cost_before
 
+
+    
     if options.postprocess_shortcutting_long_sequences:
         INFO("using long sequence shortcut posptprocessing", verbose = options.verbose_restriction_improvement)
         unique_vertex_names, repeats = get_name_repeats(best_restriction.vertex_names())
         unique_vertices = [graph.vertices[name] for name in unique_vertex_names]
+        WARN(unique_vertex_names, repeats, verbose = options.verbose_restriction_improvement)
         
         for i, r in enumerate(repeats):
             if r >= options.long_sequence_num:
                 shortcut_repeats = make_list_of_shortcuts_for_index(repeats, r, i)
+                YAY(i, r, shortcut_repeats, verbose = options.verbose_restriction_improvement)
                 solve_times = [0.0]*len(shortcut_repeats)
                 que = PriorityQueue()
                 for j, shortcut_repeat in enumerate(shortcut_repeats):
@@ -399,7 +411,10 @@ def postprocess_the_path(graph:PolynomialDualGCS,
                     solve_times[j] = solver_time
                     if new_restriction is not None:
                         restriction_cost = new_restriction.get_cost(graph, False, not options.policy_use_zero_heuristic, target_state=target_state)
+                        INFO(restriction_cost, shortcut_repeat, verbose = options.verbose_restriction_improvement)
                         que.put((restriction_cost+np.random.uniform(0,1e-9), new_restriction))
+                    else:
+                        ERROR("Failed", shortcut_repeat, verbose = options.verbose_restriction_improvement)
                 if not que.empty():
                     best_cost, best_restriction = que.get(block=False)
                     unique_vertex_names, repeats = get_name_repeats(best_restriction.vertex_names())
@@ -409,6 +424,7 @@ def postprocess_the_path(graph:PolynomialDualGCS,
                     total_solver_time += np.max(solve_times)*num_parallel_solves
                 else:
                     total_solver_time += np.sum(solve_times)
+            WARN("---", verbose = options.verbose_restriction_improvement)
 
         
     if options.postprocess_via_shortcutting:

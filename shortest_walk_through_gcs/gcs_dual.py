@@ -54,6 +54,7 @@ from tqdm import tqdm
 import pickle
 
 from collections import deque
+from shortest_walk_through_gcs.util_gcs_specific import plot_a_gcs
 from shortest_walk_through_gcs.program_options import FREE_POLY, PSD_POLY, CONVEX_POLY, ProgramOptions
 
 from shortest_walk_through_gcs.util import ( # pylint: disable=import-error, no-name-in-module, unused-import
@@ -714,12 +715,16 @@ class PolynomialDualGCS:
         cost_function: T.Callable,
         cost_function_surrogate: T.Callable=None,
         bidirectional_edge_violation=Expression(0),
-        right_edge_point_must_be_inside_intersection_of_left_and_right_sets = None
+        right_edge_point_must_be_inside_intersection_of_left_and_right_sets = None,
+        custom_edge_name = None,
     ) -> DualEdge:
         """
         Options will default to graph initialized options if not specified
         """
-        edge_name = get_edge_name(v_left.name, v_right.name)
+        if custom_edge_name is None:
+            edge_name = get_edge_name(v_left.name, v_right.name)
+        else:
+            edge_name = custom_edge_name
         assert edge_name not in self.edges
         if cost_function_surrogate is None:
             cost_function_surrogate = cost_function
@@ -814,6 +819,16 @@ class PolynomialDualGCS:
                 self.vertices[v_name].J_matrix_solution = solution_dictionary[v_name]
             self.table_of_feasible_paths = solution_dictionary["table_of_feasible_paths"]
             self.table_of_prohibited_paths = solution_dictionary["table_of_prohibited_paths"]
+
+    def plot_graph_connectivity(self, graph_name = "temp"):
+        gcs = GraphOfConvexSets()
+        vertex_dict = dict()
+        for name, v in self.vertices.items():
+            vertex_dict[name] = gcs.AddVertex(v.convex_set, name)
+        for name, e in self.edges.items():
+            gcs.AddEdge(vertex_dict[e.left.name], vertex_dict[e.right.name])
+        plot_a_gcs(gcs, graph_name = graph_name)
+        
 
     def export_a_gcs(
             self, num_repeats:int, source_vertex_name: str, source_point: npt.NDArray, vertex_name_layers: T.List[T.List[str]] = None, each_layer_to_target:str = True
