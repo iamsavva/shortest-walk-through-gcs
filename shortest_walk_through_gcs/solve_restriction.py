@@ -54,7 +54,7 @@ from shortest_walk_through_gcs.util_gcs_specific import get_edge_name
 
 from shortest_walk_through_gcs.gcs_dual import PolynomialDualGCS, DualEdge, DualVertex
 
-from shortest_walk_through_gcs.util import add_set_membership, recenter_convex_set 
+from shortest_walk_through_gcs.util import add_set_membership, recenter_convex_set
 
 class RestrictionSolution:
     """
@@ -297,7 +297,7 @@ def solve_parallelized_convex_restriction(
                 # TODO: in practice this should be put as lorentz cone, not quadratic
                 # THIS DEPENDS
                 # SHOULD ADD NON-CONVEX OPTION
-                for evaluator in edge.quadratic_inequality_evaluators:
+                for evaluator in edge.quadratic_inequality_evaluators + edge.convex_quadratic_inequality_evaluators:
                     add_cons(prog, evaluator(vertex_trajectory[i-1], u, x, target_state), "ge", False)
 
                 # groebner bases related stuff

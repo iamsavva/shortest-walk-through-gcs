@@ -228,14 +228,14 @@ def add_set_membership(prog:MathematicalProgram, convex_set:ConvexSet, x:npt.NDA
     if isinstance(convex_set, HPolyhedron):
         # prog.AddLinearConstraint(le( convex_set.A().dot(x), convex_set.b()))
         prog.AddLinearConstraint(convex_set.A(),
-                                 -np.infty*np.ones( len(convex_set.b())), 
+                                 -np.inf*np.ones( len(convex_set.b())), 
                                  convex_set.b(), 
                                  x)
     elif isinstance(convex_set, Hyperrectangle):
         hpoly = convex_set.MakeHPolyhedron()
         # prog.AddLinearConstraint(le( hpoly.A().dot(x), hpoly.b()))
         prog.AddLinearConstraint(hpoly.A(),
-                                 -np.infty*np.ones( len(hpoly.b())), 
+                                 -np.inf*np.ones( len(hpoly.b())), 
                                  hpoly.b(), 
                                  x)
     elif isinstance(convex_set, Hyperellipsoid):

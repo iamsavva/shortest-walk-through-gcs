@@ -17,6 +17,8 @@ directives:
     parent: world
     child: iiwa::base
 
+    
+
 # Add schunk
 - add_model:
     name: wsg

@@ -68,6 +68,7 @@ from shortest_walk_through_gcs.util import ( # pylint: disable=import-error, no-
     make_polyhedral_set_for_bezier_curve,
     get_kth_control_point,
     add_set_membership,
+    concatenate_polyhedra,
 )  
 
 from shortest_walk_through_gcs.util_gcs_specific import get_edge_name
@@ -283,6 +284,7 @@ class DualEdge:
 
         self.linear_inequality_evaluators = []
         self.quadratic_inequality_evaluators = []
+        self.convex_quadratic_inequality_evaluators = []
         self.equality_evaluators = []
         self.one_last_solve_equality_evaluators = []
         self.one_last_solve_linear_inequality_evaluators = []
@@ -310,6 +312,8 @@ class DualEdge:
         for evaluator in self.linear_inequality_evaluators:
             linear_inequality_constraints.append(evaluator(xl,self.u,xr,xt))
         for evaluator in self.quadratic_inequality_evaluators:
+            quadratic_inequality_constraints.append(evaluator(xl,self.u,xr,xt))
+        for evaluator in self.convex_quadratic_inequality_evaluators:
             quadratic_inequality_constraints.append(evaluator(xl,self.u,xr,xt))
         for evaluator in self.equality_evaluators:
             equality_constraints.append(evaluator(xl,self.u,xr,xt))
@@ -906,14 +910,111 @@ class PolynomialDualGCS:
         return gcs, source_v, target_v
 
 
+    def export_a_gcs_with_edge_controls(self, 
+                                        num_repeats:int, 
+                                        source_vertex_name: str, 
+                                        source_point: npt.NDArray, 
+                                        x_dim: int,
+                                        u_dim: int,
+                                        u_max=20,
+                                        vertex_name_layers: T.List[T.List[str]] = None, 
+                                        each_layer_to_target:str = True,
+                     ) -> T.Tuple[GraphOfConvexSets, GraphOfConvexSets.Vertex, GraphOfConvexSets.Vertex]:
+        if not self.options.potentials_are_not_a_function_of_target_state:
+            raise NotImplementedError("need to implement goal conditioned version, should be easy")
 
+        gcs = GraphOfConvexSets()
+        if vertex_name_layers is None:
+            vertex_name_layers = [[name for name in self.vertices.keys() if name != "target"]]
 
+        def set_with_controls(poly):
+            return concatenate_polyhedra([poly, HPolyhedron.MakeBox(-np.ones(2)*u_max, np.ones(2)*u_max)])
+        source_set = set_with_controls(HPolyhedron.MakeBox(source_point-1e-4, source_point+1e-4))
+        source_v = gcs.AddVertex(source_set, "source")
+        target_v = gcs.AddVertex(self.target_convex_set, "target")
 
+        # add vertices in layers
+        gcs_layers = []
+        layer_index = 0
+        for i in range(num_repeats):
+            for layer in vertex_name_layers:
+                gcs_layer = []
+                layer_index += 1
+                for v_name in layer:
+                    v = gcs.AddVertex(set_with_controls(self.vertices[v_name].convex_set), "L"+str(layer_index) + "| " + v_name)
+                    gcs_layer.append((v_name, v))
+                gcs_layers.append(gcs_layer)
 
+        def add_constraints_and_costs_on_edge(gcs_edge: GraphOfConvexSets.Edge, edge:DualEdge):
+            xl = gcs_edge.xu()[:x_dim]
+            u = gcs_edge.xu()[x_dim:x_dim+u_dim]
+            xr = gcs_edge.xv()[:x_dim]
 
+            # add cost
+            cost = edge.cost_function(xl, u, xr, None)
+            gcs_edge.AddCost(cost)
 
-        
+            # add constraints
+            for evaluator in edge.groebner_basis_equality_evaluators:
+                expressions = evaluator(xl, u, xr, None)
+                if isinstance(expressions, Expression):
+                    expressions = [expressions]
+                for expression in expressions:
+                    gcs_edge.AddConstraint(expression == 0)
 
+            for evaluator in edge.linear_inequality_evaluators:
+                expressions = evaluator(xl, u, xr, None)
+                if isinstance(expressions, Expression):
+                    expressions = [expressions]
+                for expression in expressions:
+                    gcs_edge.AddConstraint(expression >= 0)
 
+            # for evaluator in edge.convex_quadratic_inequality_evaluators:
+            #     expressions = evaluator(xl, u, xr, None)
+            #     if isinstance(expressions, Expression):
+            #         expressions = [expressions]
+            #     for expression in expressions:
+            #         gcs_edge.AddConstraint(expression >= 0)
+            
+            for evaluator in edge.quadratic_inequality_evaluators:
+                expressions = evaluator(xl, u, xr, None)
+                if isinstance(expressions, Expression):
+                    expressions = [expressions]
+                for expression in expressions:
+                    gcs_edge.AddConstraint(expression >= 0, use_in_transcription={GraphOfConvexSets.Transcription(2)})
 
+                              
+        # source vertex to 0th layer
+        gcs_layer = gcs_layers[0]
+        for v_name, v in gcs_layer:
+            edge_name = get_edge_name(source_vertex_name, v_name)
+            if edge_name in self.vertices[source_vertex_name].edges_out:
+                gcs_edge = gcs.AddEdge(source_v, v)
+                edge = self.edges[edge_name]
+                add_constraints_and_costs_on_edge(gcs_edge, edge)
+
+        for i, gcs_layer in enumerate(gcs_layers):
+            if i < len(gcs_layers)-1:
+                next_gcs_layer = gcs_layers[i+1]
+                for v_name, v in gcs_layer:
+                    for w_name, w in next_gcs_layer:
+                        edge_name = get_edge_name(v_name, w_name)
+                        if edge_name in self.vertices[v_name].edges_out:
+                            gcs_edge = gcs.AddEdge(v, w)
+                            add_constraints_and_costs_on_edge(gcs_edge, self.edges[edge_name])
+
+                    if each_layer_to_target or (i >= len(gcs_layers) - len(vertex_name_layers)):
+                        edge_name = get_edge_name(v_name, "target")
+                        if edge_name in self.vertices[v_name].edges_out:
+                            gcs_edge = gcs.AddEdge(v, target_v)
+                            add_constraints_and_costs_on_edge(gcs_edge, self.edges[edge_name])
+            else:
+                # connect just to target
+                for v_name, v in gcs_layer:
+                    edge_name = get_edge_name(v_name, "target")
+                    if edge_name in self.vertices[v_name].edges_out:
+                        gcs_edge = gcs.AddEdge(v, target_v)
+                        add_constraints_and_costs_on_edge(gcs_edge, self.edges[edge_name])
+
+        return gcs, source_v, target_v
 

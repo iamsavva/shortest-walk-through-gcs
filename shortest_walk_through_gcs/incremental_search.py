@@ -380,7 +380,7 @@ def postprocess_the_path(graph:PolynomialDualGCS,
     # best_restriction = restriction
     
 
-    best_restriction, solver_time = solve_convex_restriction(graph, restriction.vertex_path, initial_state, verbose_failure=False, target_state=target_state, one_last_solve = True)
+    best_restriction, solver_time = solve_convex_restriction(graph, restriction.vertex_path, initial_state, verbose_failure=False, target_state=target_state, one_last_solve = True, warmstart=restriction)
     if best_restriction is None:
         best_restriction, solver_time = solve_convex_restriction(graph, restriction.vertex_path[:-1] + [restriction.vertex_path[-2], restriction.vertex_path[-1]], initial_state, verbose_failure=False, target_state=target_state, one_last_solve = True)
         if best_restriction is None:
